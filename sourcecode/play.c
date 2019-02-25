@@ -1,6 +1,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+void playTurn();
+void makeMove();
 void displayBoard();
 void printDivider(int);
 void printTop(int);
@@ -8,23 +10,33 @@ void printLine(int, int*, int);
 void printRow(char, int, int*);
 
 // 0 => NO INPUT, 1 => X, 2 => O
-int board[3][3];
-// = {{0,2,1}, {2,1,1}, {1,1,1}};
+int board[3][3]= {{0,2,1}, {2,1,1}, {1,1,1}};
 
 struct player{
     int id;
     int mark;
-}
+};
+
+
 
 int main(){
+
     displayBoard();
+
     return 0;
+}
+
+void playTurn(){
+
+}
+
+void makeMove(){
+
 }
 
 void displayBoard(){
     int width = (sizeof(board[0]))/(sizeof(board[0][0]));
     int height = (sizeof(board))/(sizeof(board[0]));
-    printf("height: %d", height);
     printf("\n");
 
     char letter = 'A';
@@ -76,23 +88,27 @@ void printLine(int width, int* values, int vertical){
         //X
         if(values[i]==1){
             // TOP OR BOTTOM ROW OF X
-            if(vertical==1 || vertical==3){
-                printf("  0 0  ");
+            if(vertical==1){
+                printf(" \\\\ // ");
             }
             // SECOND ROW OF X
             if(vertical ==2){
-                printf("   0   ");
+                printf("   X   ");
+            }
+            // BOTTOM ROW OF X
+            if(vertical==3){
+                printf(" // \\\\ ");
             }
         }
         //O
         if(values[i]==2){
             // TOP OR BOTTOM ROW OF 0
             if(vertical==1 || vertical==3){
-                printf("  000  ");
+                printf("  ooo  ");
             }
             // SECOND ROW OF 0
             if(vertical ==2){
-                printf(" 0   0 ");
+                printf(" O   O ");
             }
             // THIRD ROW OF 0
             if(vertical ==3){
