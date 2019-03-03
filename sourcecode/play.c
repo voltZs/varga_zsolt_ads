@@ -1,6 +1,20 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#define GB_WIDTH 3
+#define GB_HEIGHT 3
+#define MARK_X 1
+#define MARK_O 2
+
+typedef enum { false, true } bool;
+
+struct turn{
+    int player;
+    int positionX;
+    int positionY;
+    struct turn * next;
+};
+
 void playTurn();
 void makeMove();
 void displayBoard();
@@ -9,20 +23,30 @@ void printTop(int);
 void printLine(int, int*, int);
 void printRow(char, int, int*);
 
+bool gameWon = false;
+bool endSession = false;
+int whosTurn = MARK_X;
+int player1 = MARK_X;
+int player2 = MARK_O;
 // 0 => NO INPUT, 1 => X, 2 => O
-int board[3][3]= {{0,2,1}, {2,1,1}, {1,1,1}};
+int board[GB_WIDTH][GB_HEIGHT]= {{1,0,1}, {1,2,1}, {2,1,1}};
 
-struct player{
-    int id;
-    int mark;
-};
+//other prompts: new players, end game, show leaderboard,
+
+
 
 
 
 int main(){
+    // both implemented as stacks
+    struct turn * history;
+    struct turn * undoneHistory;
+
+    //setup game - ask for name, preferred
+
+
 
     displayBoard();
-
     return 0;
 }
 
@@ -122,7 +146,7 @@ void printLine(int width, int* values, int vertical){
 void printDivider(int width){
     printf("\t");
     for(int i=0; i<((width*7)+(width+1)); i++){
-        printf("=");
+        printf("-");
     }
     printf("\n");
 }
