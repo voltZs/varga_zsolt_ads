@@ -15,21 +15,29 @@ struct turn{
     struct turn * next;
 };
 
+struct player{
+    int mark;
+    char name[20];
+};
+
+void setupGame();
 void playTurn();
 void makeMove();
+int checkGameWon();
 void displayBoard();
 void printDivider(int);
 void printTop(int);
 void printLine(int, int*, int);
 void printRow(char, int, int*);
+void flushInput();
 
 bool gameWon = false;
-bool endSession = false;
+bool runningSession = true;
 int whosTurn = MARK_X;
 int player1 = MARK_X;
 int player2 = MARK_O;
 // 0 => NO INPUT, 1 => X, 2 => O
-int board[GB_WIDTH][GB_HEIGHT]= {{1,0,1}, {1,2,1}, {2,1,1}};
+int board[GB_WIDTH][GB_HEIGHT]= {{0,0,0}, {0,0,0}, {0,0,0}};
 
 //other prompts: new players, end game, show leaderboard,
 
@@ -42,20 +50,58 @@ int main(){
     struct turn * history;
     struct turn * undoneHistory;
 
-    //setup game - ask for name, preferred
+    //setup game - ask for name, preferred mark, 1 vs 1 or 1 vs computer
+    //
+    while(runningSession)
+    {
+        // printf("%c\n", 'a'-32);
+        while(gameWon == false){
+            // different logic for both modes, duh
+            // ask about turn
+            displayBoard();
+            playTurn();
+        }
+        displayBoard();
+        printf("Player %d won!\n", whosTurn);
+        // prompt whether they want to continue playing or naw
+        runningSession = false;
+    }
 
-
-
-    displayBoard();
     return 0;
 }
 
-void playTurn(){
+void setupGame()
+{
 
 }
 
-void makeMove(){
+void playTurn(){
+    char row = 0;
+    int column = 0;
+    char input[3];
+    printf("Player %d: Enter row followed by column\n", whosTurn);
+    fgets(input, 3, stdin);
+    flushInput();
+    row = input[0];
+    column = atoi(&input[1]);
+    board[((int)row)-64-1][column-1] = whosTurn;
 
+    if(checkGameWon()){
+        gameWon = true;
+        return;
+        // return so that whosTurn below is not swapped!
+    }
+
+    if(whosTurn == MARK_X){
+        whosTurn = MARK_O;
+    }else{
+        whosTurn = MARK_X;
+    }
+
+}
+
+int checkGameWon(){
+    return 0;
 }
 
 void displayBoard(){
@@ -77,7 +123,7 @@ void printTop(int width){
     printf("\t");
     printf("    ");
     for(int i=0; i<width; i++){
-        printf("%d", i);
+        printf("%d", i+1);
         printf("       ");
     }
     printf("\n");
@@ -149,4 +195,10 @@ void printDivider(int width){
         printf("-");
     }
     printf("\n");
+}
+
+// uses up remaining characters in the stdin
+void flushInput(){
+    int ch;
+    while((ch = getchar()) != '\n' && ch != EOF);
 }
