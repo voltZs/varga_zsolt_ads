@@ -19,11 +19,12 @@ struct turn{
 
 struct player{
     int mark;
+    bool automated;
     char name[20];
 };
 
 void setupGame();
-void playTurn();
+void playTurn(struct player **);
 void makeMove();
 int checkGameState();
 void displayBoard();
@@ -55,6 +56,21 @@ int main(){
     // both implemented as stacks
     struct turn * history;
     struct turn * undoneHistory;
+    struct player * playerOne;
+    struct player * playerTwo;
+
+    playerOne = malloc(sizeof(struct player));
+    playerOne -> mark = MARK_X;
+    playerOne -> automated = false;
+
+    playerTwo = malloc(sizeof(struct player));
+    playerTwo -> mark = MARK_O;
+    playerTwo -> automated = false;
+
+    struct player ** currPlayer = &playerOne;
+
+
+    printf("Player 1 mark: %c", getSign(playerOne -> mark));
 
     //setup game - ask for name, preferred mark, 1 vs 1 or 1 vs computer
     //
@@ -65,11 +81,21 @@ int main(){
             // different logic for both modes, duh
             // ask about turn
             displayBoard();
-            playTurn();
+            playTurn(currPlayer);
+            // if statement prevents from currPlayer being switched if game won
+            printf("CurrPlayer before switch: %d", (*currPlayer) -> mark);
+            if(!gamestate){
+                if(*currPlayer == playerOne){
+                    currPlayer = &playerTwo;
+                }else{
+                    currPlayer = &playerOne;
+                }
+            }
+            printf("CurrPlayer after switch: %d", (*currPlayer) -> mark);
         }
         displayBoard();
         if(gamestate == GAME_WON){
-            printf("Player %d (%c) won!\n", whosTurn, getSign(whosTurn));
+            printf("Player %d (%c) won!\n", (*currPlayer) -> mark, getSign((*currPlayer) -> mark));
         } else if(gamestate == GAME_TIE){
             printf("It's a tie!\n");
         }
@@ -93,12 +119,12 @@ void setupGame()
 
 }
 
-void playTurn(){
+void playTurn(struct player ** currPlayer){
     char row = 0;
     int rowNumeral = 0;
     int column = 0;
     char input[3];
-    printf("Player %d (%c): Enter row followed by column\n", whosTurn, getSign(whosTurn));
+    printf("Player %d (%c): Enter row followed by column\n", (*currPlayer) -> mark, getSign((*currPlayer) -> mark));
     readinput(input, 3);
     row = input[0];
     rowNumeral = rowToInt(row);
@@ -108,32 +134,22 @@ void playTurn(){
     if(rowNumeral <= 0 || rowNumeral > GB_SIZE || column <= 0 || column > GB_SIZE)
     {
         printf("Not a valid input. Try again.\n");
-        playTurn();
+        playTurn(currPlayer);
         return;
     }
 
     // check if chosen tile is free
     if(board[rowNumeral-1][column-1]  == 0)
     {
-        board[rowNumeral-1][column-1] = whosTurn;
+        board[rowNumeral-1][column-1] = (*currPlayer) -> mark;
     }  else {
         printf("This tile is already taken. Make a different move.\n");
-        playTurn();
+        playTurn(currPlayer);
         return;
     }
 
     gamestate = checkGameState();
-    if(gamestate){
-        return;
-        // return so that whosTurn below is not swapped!
-    }
-
-    if(whosTurn == MARK_X){
-        whosTurn = MARK_O;
-    }else{
-        whosTurn = MARK_X;
-    }
-
+    return;
 }
 
 char getSign(int mark){
