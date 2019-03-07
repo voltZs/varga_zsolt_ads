@@ -26,7 +26,7 @@ struct turn{
 void setupGame();
 void push_turn(struct turn **, struct turn *);
 void traverse_turns(struct turn *);
-void pop_turn(struct turn **);
+struct turn * pop_turn(struct turn **);
 void playTurn(struct player**, struct turn**, struct turn**);
 void makeMove();
 int checkGameState();
@@ -93,6 +93,9 @@ int main(){
                 }
             }
         }
+        // following line is a test/ demontration of using pop
+        struct turn * abcd = pop_turn(&history);
+        printf("Popped turn: %c(%d,%d);;; ", getSign((abcd->owner)->mark), abcd-> positionX, abcd->positionY);
         traverse_turns(history);
         displayBoard();
         if(gamestate == GAME_WON){
@@ -170,13 +173,16 @@ void push_turn(struct turn ** phistory, struct turn * turn)
     }
 }
 
-void pop_turn(struct turn ** phistory)
+struct turn * pop_turn(struct turn ** phistory)
 {
+    struct turn * tmp;
     if(*phistory == NULL){
         printf("Stack is empty\n");
     } else {
+        tmp = (*phistory);
         (*phistory) = (*phistory) -> next;
     }
+    return tmp;
 }
 
 void traverse_turns(struct turn * history)
