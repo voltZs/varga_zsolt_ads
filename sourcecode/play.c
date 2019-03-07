@@ -10,21 +10,24 @@
 
 typedef enum { false, true } bool;
 
-struct turn{
-    int player;
-    int positionX;
-    int positionY;
-    struct turn * next;
-};
-
 struct player{
     int mark;
     bool automated;
     char name[20];
 };
 
+struct turn{
+    struct player * owner;
+    int positionX;
+    int positionY;
+    struct turn * next;
+};
+
 void setupGame();
-void playTurn(struct player **);
+void push_turn(struct turn **, struct turn *);
+void traverse_turns(struct turn *);
+void pop_turn(struct turn **);
+void playTurn(struct player**, struct turn**, struct turn**);
 void makeMove();
 int checkGameState();
 void displayBoard();
@@ -38,9 +41,6 @@ char getSign(int);
 
 int gamestate = 0;
 bool runningSession = true;
-int whosTurn = MARK_X;
-int player1 = MARK_X;
-int player2 = MARK_O;
 // 0 => NO INPUT, 1 => X, 2 => O
 int board[GB_SIZE][GB_SIZE]= {{0,0,0}, {0,0,0}, {0,0,0}};
 
@@ -55,7 +55,9 @@ int board[GB_SIZE][GB_SIZE]= {{0,0,0}, {0,0,0}, {0,0,0}};
 int main(){
     // both implemented as stacks
     struct turn * history;
+    history = NULL;
     struct turn * undoneHistory;
+    undoneHistory = NULL;
     struct player * playerOne;
     struct player * playerTwo;
 
@@ -81,9 +83,8 @@ int main(){
             // different logic for both modes, duh
             // ask about turn
             displayBoard();
-            playTurn(currPlayer);
+            playTurn(currPlayer, &history, &undoneHistory);
             // if statement prevents from currPlayer being switched if game won
-            printf("CurrPlayer before switch: %d", (*currPlayer) -> mark);
             if(!gamestate){
                 if(*currPlayer == playerOne){
                     currPlayer = &playerTwo;
@@ -91,8 +92,8 @@ int main(){
                     currPlayer = &playerOne;
                 }
             }
-            printf("CurrPlayer after switch: %d", (*currPlayer) -> mark);
         }
+        traverse_turns(history);
         displayBoard();
         if(gamestate == GAME_WON){
             printf("Player %d (%c) won!\n", (*currPlayer) -> mark, getSign((*currPlayer) -> mark));
@@ -119,7 +120,7 @@ void setupGame()
 
 }
 
-void playTurn(struct player ** currPlayer){
+void playTurn(struct player ** currPlayer, struct turn ** history, struct turn ** undoneHistory){
     char row = 0;
     int rowNumeral = 0;
     int column = 0;
@@ -130,26 +131,62 @@ void playTurn(struct player ** currPlayer){
     rowNumeral = rowToInt(row);
     column = atoi(&input[1]);
 
-
     if(rowNumeral <= 0 || rowNumeral > GB_SIZE || column <= 0 || column > GB_SIZE)
     {
         printf("Not a valid input. Try again.\n");
-        playTurn(currPlayer);
+        playTurn(currPlayer, history, undoneHistory);
         return;
     }
 
     // check if chosen tile is free
     if(board[rowNumeral-1][column-1]  == 0)
     {
+        struct turn * currTurn;
+        currTurn = malloc(sizeof(struct turn));
+        currTurn -> owner = (*currPlayer);
+        currTurn -> positionX = rowNumeral-1;
+        currTurn -> positionY = column-1;
+        push_turn(history, currTurn);
         board[rowNumeral-1][column-1] = (*currPlayer) -> mark;
     }  else {
         printf("This tile is already taken. Make a different move.\n");
-        playTurn(currPlayer);
+        playTurn(currPlayer, history, undoneHistory);
         return;
     }
 
     gamestate = checkGameState();
     return;
+}
+
+void push_turn(struct turn ** phistory, struct turn * turn)
+{
+
+    if(*phistory == NULL){
+        turn -> next = NULL;
+        *phistory = turn;
+    } else {
+        turn -> next = *phistory;
+        *phistory = turn;
+    }
+}
+
+void pop_turn(struct turn ** phistory)
+{
+    if(*phistory == NULL){
+        printf("Stack is empty\n");
+    } else {
+        (*phistory) = (*phistory) -> next;
+    }
+}
+
+void traverse_turns(struct turn * history)
+{
+    while(history != NULL)
+    {
+        printf("%c: (%d,%d); ", getSign((history-> owner) -> mark),history -> positionX,  history -> positionY);
+        history = history -> next;
+    }
+    printf("NULL\n");
 }
 
 char getSign(int mark){
