@@ -1,12 +1,18 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#define GB_SIZE 3
 #define MARK_X 1
 #define MARK_O 2
-#define WIN_SCORE 3
 #define GAME_WON 1
 #define GAME_TIE 2
+#define GAME 1
+#define PREFERENCES 2
+#define LEADERBOARD 3
+#define EXIT 0
+
+// hopefully make these 2 dynamic
+#define GB_SIZE 3
+#define WIN_SCORE 3
 
 typedef enum { false, true } bool;
 
@@ -26,6 +32,7 @@ struct turn{
 void setupGame();
 void push_turn(struct turn **, struct turn *);
 void traverse_turns(struct turn *);
+void flush_turns(struct turn **);
 struct turn * pop_turn(struct turn **);
 void playTurn(struct player**, struct turn**, struct turn**);
 void makeMove();
@@ -40,7 +47,7 @@ int rowToInt(char);
 char getSign(int);
 
 int gamestate = 0;
-bool runningSession = true;
+bool sessionstate = GAME;
 // 0 => NO INPUT, 1 => X, 2 => O
 int board[GB_SIZE][GB_SIZE]= {{0,0,0}, {0,0,0}, {0,0,0}};
 
@@ -76,36 +83,54 @@ int main(){
 
     //setup game - ask for name, preferred mark, 1 vs 1 or 1 vs computer
     //
-    while(runningSession)
+    while(sessionstate)
     {
-        // printf("%c\n", 'a'-32);
-        while(!gamestate){
-            // different logic for both modes, duh
-            // ask about turn
-            displayBoard();
-            playTurn(currPlayer, &history, &undoneHistory);
-            // if statement prevents from currPlayer being switched if game won
-            if(!gamestate){
-                if(*currPlayer == playerOne){
-                    currPlayer = &playerTwo;
-                }else{
-                    currPlayer = &playerOne;
+        if(sessionstate == GAME)
+        {
+            while(!gamestate){
+                // different logic for both modes, duh
+                // ask about turn
+                displayBoard();
+                playTurn(currPlayer, &history, &undoneHistory);
+                // if statement prevents from currPlayer being switched if game won
+                if(!gamestate){
+                    if(*currPlayer == playerOne){
+                        currPlayer = &playerTwo;
+                    }else{
+                        currPlayer = &playerOne;
+                    }
                 }
             }
-        }
-        // following line is a test/ demontration of using pop
-        struct turn * abcd = pop_turn(&history);
-        printf("Popped turn: %c(%d,%d);;; ", getSign((abcd->owner)->mark), abcd-> positionX, abcd->positionY);
-        traverse_turns(history);
-        displayBoard();
-        if(gamestate == GAME_WON){
-            printf("Player %d (%c) won!\n", (*currPlayer) -> mark, getSign((*currPlayer) -> mark));
-        } else if(gamestate == GAME_TIE){
-            printf("It's a tie!\n");
+            // test/ demontration of using pop
+            // struct turn * abcd = pop_turn(&history);
+            // printf("Popped turn: %c(%d,%d);;; ", getSign((abcd->owner)->mark), abcd-> positionX, abcd->positionY);
+            // however when popping we would just add it straight to undoneHistory:
+            // push(&undoneHistory, pop_turn(&history));
+
+            // traverse_turns(history);
+            // flush_turns(&history);
+            // traverse_turns(history);
+
+            displayBoard();
+            if(gamestate == GAME_WON){
+                printf("Player %d (%c) won!\n", (*currPlayer) -> mark, getSign((*currPlayer) -> mark));
+            } else if(gamestate == GAME_TIE){
+                printf("It's a tie!\n");
+            }
         }
 
-        // prompt whether they want to continue playing or naw
-        runningSession = false;
+        if(sessionstate = LEADERBOARD)
+        {
+
+        }
+
+        if(sessionstate = PREFERENCES)
+        {
+            
+        }
+
+
+        sessionstate = EXIT;
     }
 
     return 0;
@@ -193,6 +218,18 @@ void traverse_turns(struct turn * history)
         history = history -> next;
     }
     printf("NULL\n");
+}
+
+void flush_turns(struct turn ** phistory)
+{
+    if(((*phistory)->next) != NULL)
+    {
+        *phistory = (*phistory)-> next;
+        flush_turns(phistory);
+    } else {
+        free(*phistory);
+        (*phistory) = NULL;
+    }
 }
 
 char getSign(int mark){
