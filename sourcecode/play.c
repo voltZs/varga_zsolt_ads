@@ -3,11 +3,17 @@
 
 #define MARK_X 1
 #define MARK_O 2
+
 #define GAME_WON 1
 #define GAME_TIE 2
+
 #define GAME 1
 #define PREFERENCES 2
 #define LEADERBOARD 3
+
+#define UNDO 1
+#define REDO 2
+
 #define EXIT 0
 
 typedef enum { false, true } bool;
@@ -28,12 +34,15 @@ struct turn{
 void setupGame();
 void initBoard(int***, int);
 void traverse_board(int**, int);
+void free_board(int ***, int);
 void push_turn(struct turn **, struct turn *);
 void traverse_turns(struct turn *);
 void flush_turns(struct turn **);
 struct turn * pop_turn(struct turn **);
-void playTurn(struct player**, struct turn**, bool, int**, int);
-void makeMove();
+void playTurn(struct player**, struct turn**, struct turn**, int**, int);
+int checkGameCommands(char);
+int playUndo(struct turn **, struct turn **, int **);
+int playRedo(struct turn **, struct turn **, int **);
 void checkGameState(int **, int, int, int *, struct player **);
 void displayBoard(int **, int);
 void printDivider(int);
@@ -43,13 +52,7 @@ void printRow(char, int, int*);
 int readinput(char s[], int);
 int rowToInt(char);
 char getSign(int);
-
-// 0 => NO INPUT, 1 => X, 2 => O
-// int board[size][size]= {{0,0,0,0}, {0,0,0,0}, {0,0,0,0}, {0,0,0,0}};
-
-//other prompts: new players, end game, show leaderboard,
-
-
+void printHelpPage();
 
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -59,7 +62,6 @@ int main(){
     int gb_size = 4;
     int ** board;
     initBoard(&board, gb_size);
-    traverse_board(board, gb_size);
 
     int winscore = 3;
     int gamestate = 0;
@@ -90,6 +92,7 @@ int main(){
         if(sessionstate == GAME)
         {
             while(1){
+                traverse_board(board, gb_size);
                 displayBoard(board, gb_size);
                 checkGameState(board, gb_size, winscore, &gamestate, currPlayer);
 
@@ -104,7 +107,7 @@ int main(){
                     }
                 }
 
-                playTurn(currPlayer, &history, (*currPlayer)->automated, board, gb_size);
+                playTurn(currPlayer, &history, &undoneHistory, board, gb_size);
             }
 
             if(gamestate == GAME_WON){
@@ -154,9 +157,10 @@ void setupGame()
 
 }
 
-void playTurn(struct player ** currPlayer, struct turn ** history, bool automated, int** board, int size){
+void playTurn(struct player ** currPlayer, struct turn ** history, struct turn ** undoneHistory, int** board, int size){
     int column = 0;
     int row = 0;
+    bool automated = (*currPlayer) -> automated;
 
     if(automated){
         printf("Computer making a move.\n");
@@ -166,6 +170,23 @@ void playTurn(struct player ** currPlayer, struct turn ** history, bool automate
         char rowChar = 0;
         printf("Player %d (%c): Enter row followed by column\n", (*currPlayer) -> mark, getSign((*currPlayer) -> mark));
         readinput(input, 3);
+        if(input[0] == ':')
+        {
+            int gamecommand = checkGameCommands(input[1]);
+            if(gamecommand){
+                if(gamecommand == UNDO){
+                    if(playUndo(history, undoneHistory, board)){
+                        return;
+                    }
+                } else if(gamecommand == REDO){
+                    if(playRedo(history, undoneHistory, board)){
+                        return;
+                    }
+                }
+            }
+            playTurn(currPlayer, history, undoneHistory, board, size);
+            return;
+        }
         rowChar = input[0];
         row = rowToInt(rowChar)-1;
         column = atoi(&input[1])-1;
@@ -174,7 +195,7 @@ void playTurn(struct player ** currPlayer, struct turn ** history, bool automate
     if(row < 0 || row > size || column < 0 || column > size)
     {
         printf("Not a valid input. Try again.\n");
-        playTurn(currPlayer, history, automated, board, size);
+        playTurn(currPlayer, history, undoneHistory, board, size);
         return;
     }
 
@@ -187,14 +208,61 @@ void playTurn(struct player ** currPlayer, struct turn ** history, bool automate
         currTurn -> row = row;
         currTurn -> column = column;
         push_turn(history, currTurn);
+        flush_turns(undoneHistory);
         board[row][column] = (*currPlayer) -> mark;
     }  else {
         printf("This tile is already taken. Make a different move.\n");
-        playTurn(currPlayer, history, automated, board, size);
+        playTurn(currPlayer, history, undoneHistory, board, size);
         return;
     }
     return;
 }
+
+int checkGameCommands(char letter)
+{
+    if(letter == 'h' || letter == 'H')
+    {
+        printHelpPage();
+    } else if(letter == 'r' || letter == 'R'  ){
+        return REDO;
+    } else if(letter == 'u' || letter == 'U'  ){
+        return UNDO;
+    }
+    return 0;
+}
+
+int playUndo(struct turn ** history, struct turn ** undoneHistory, int ** board)
+{
+    if(*history == NULL){
+        printf("No moves to undo\n");
+        // return 0 if failed to undo
+        return 0;
+    }
+    struct turn * last = pop_turn(history);
+    printf("Popped turn: %c(%d,%d)\n ", getSign((last->owner)->mark), last-> row, last->column);
+    push_turn(undoneHistory, last);
+    printf("Pushed into undone:  %c(%d,%d)\n", getSign(((*undoneHistory)->owner)->mark), (*undoneHistory)->row, (*undoneHistory)->column);
+    board[last->row][last->column] = 0;
+
+    return 1;
+}
+
+int playRedo(struct turn ** history, struct turn ** undoneHistory, int ** board)
+{
+    if(*undoneHistory == NULL){
+        printf("No moves to redo\n");
+        // return 0 if failed to undo
+        return 0;
+    }
+    struct turn * lastUndone = pop_turn(undoneHistory);
+    printf("Popped turn: %c(%d,%d)\n ", getSign((lastUndone->owner)->mark), lastUndone-> row, lastUndone->column);
+    push_turn(history, lastUndone);
+    printf("Pushed into history:  %c(%d,%d)\n", getSign(((*history)->owner)->mark), (*history)->row, (*history)->column);
+    board[lastUndone->row][lastUndone->column] = (lastUndone->owner)->mark;
+
+    return 1;
+}
+
 
 void push_turn(struct turn ** phistory, struct turn * turn)
 {
@@ -232,17 +300,20 @@ void traverse_turns(struct turn * history)
 
 void flush_turns(struct turn ** phistory)
 {
-    if(((*phistory)->next) != NULL)
-    {
-        *phistory = (*phistory)-> next;
-        flush_turns(phistory);
-    } else {
-        free(*phistory);
-        (*phistory) = NULL;
+    if(*phistory != NULL){
+        if(((*phistory)->next) != NULL)
+        {
+            *phistory = (*phistory)-> next;
+            flush_turns(phistory);
+        } else {
+            free(*phistory);
+            (*phistory) = NULL;
+        }
     }
 }
 
-void initBoard(int *** board, int size){
+void initBoard(int *** board, int size)
+{
     // *board is a ** int after dereferencing
     *board = malloc(sizeof(int *) * size);;
     for(int row = 0; row<size; row++){
@@ -253,25 +324,36 @@ void initBoard(int *** board, int size){
     }
 }
 
-void traverse_board(int ** board, int size){
+void traverse_board(int ** board, int size)
+{
     for(int row = 0; row<size; row++)
     {
         for(int column = 0; column<size; column++){
-            printf("%d\t", board[row][column]);
+            printf("%d ", board[row][column]);
 
         }
         printf("\n");
     }
 }
 
-char getSign(int mark){
+void free_board(int *** board, int size)
+{
+    for(int row = 0; row<size; row++){
+        free((*board)[row]);
+    }
+    free(*board);
+}
+
+char getSign(int mark)
+{
     if(mark == MARK_X){
         return 'X';
     }
     return 'O';
 }
 
-int rowToInt(char row){
+int rowToInt(char row)
+{
     int numeric = (int)row;
     if(numeric >= 65 && numeric <= 90){
         // do nothing
@@ -285,7 +367,8 @@ int rowToInt(char row){
     return numeric;
 }
 
-void checkGameState(int** board, int size, int winscore, int * gamestate, struct player ** player){
+void checkGameState(int** board, int size, int winscore, int * gamestate, struct player ** player)
+{
     int consecutive = 1;
     int current_sign;
     int previous_sign;
@@ -537,4 +620,9 @@ int readinput(char s[], int maxlen)
     }
     s[i] = '\0';
     return i;
+}
+
+void printHelpPage()
+{
+    printf("THIS IS THE HELP PAGE");
 }
