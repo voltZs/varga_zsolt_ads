@@ -44,6 +44,11 @@ int checkGameCommands(char);
 int playUndo(struct turn **, struct turn **, int **);
 int playRedo(struct turn **, struct turn **, int **);
 void checkGameState(int **, int, int, int *, struct player **);
+void push_scope(int*, int, int);
+void ai_add_weights(int**, int **, int, int *, int *, int);
+int ai_check_patterns(int*, int, int);
+void flush_scope(int*, int);
+int opposite_mark(int);
 void displayBoard(int **, int);
 void printDivider(int);
 void printTop(int);
@@ -59,7 +64,7 @@ void printHelpPage();
 /////////////////////////////////  MAIN  ///////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
 int main(){
-    int gb_size = 4;
+    int gb_size = 5;
     int ** board;
     initBoard(&board, gb_size);
 
@@ -346,9 +351,7 @@ void free_board(int *** board, int size)
 
 char getSign(int mark)
 {
-    if(mark == MARK_X){
-        return 'X';
-    }
+    if(mark == MARK_X) return 'X';
     return 'O';
 }
 
@@ -374,8 +377,16 @@ void checkGameState(int** board, int size, int winscore, int * gamestate, struct
     int previous_sign;
     int freeSpaces = 0;
 
-    bool automated = (*player) -> automated;
 
+    bool automated = (*player) -> automated;
+    if(automated){
+    }
+    // move theee in the if above
+    int ** weightboard;
+    initBoard(&weightboard, size);
+    int * ai_scope = calloc(winscore, sizeof(int));
+    int * ai_scope_row = calloc(winscore, sizeof(int));
+    int * ai_scope_column = calloc(winscore, sizeof(int));
 
     // check horizontal - ALSO CHECKS IF GAME IS A TIE
     for(int row = 0; row<size; row++){
@@ -389,7 +400,7 @@ void checkGameState(int** board, int size, int winscore, int * gamestate, struct
                     consecutive++;
                     if(consecutive == winscore){
                         *gamestate = GAME_WON;
-                        return;
+                        if(!automated) return;
                     }
                 } else {
                     consecutive = 1;
@@ -398,8 +409,21 @@ void checkGameState(int** board, int size, int winscore, int * gamestate, struct
                 consecutive = 1;
                 freeSpaces++;
             }
+
+            push_scope(ai_scope, winscore, current_sign);
+            push_scope(ai_scope_row, winscore, row);
+            push_scope(ai_scope_column, winscore, column);
+            // only do pattern checs if we are winsize elements into the array
+            if((column+1) >= winscore){
+                int weight = ai_check_patterns(ai_scope, winscore, (*player)->mark);
+                // printf("weight: %d\n", weight);
+                ai_add_weights(board, weightboard, weight, ai_scope_row, ai_scope_column, winscore);
+            }
+
+
             previous_sign = current_sign;
         }
+        flush_scope(ai_scope, winscore);
     }
 
     // check vertical
@@ -414,7 +438,7 @@ void checkGameState(int** board, int size, int winscore, int * gamestate, struct
                     consecutive++;
                     if(consecutive == winscore){
                         *gamestate = GAME_WON;
-                        return;
+                        if(!automated) return;
                     }
                 } else {
                     consecutive = 1;
@@ -441,9 +465,7 @@ void checkGameState(int** board, int size, int winscore, int * gamestate, struct
             previous_sign = 0;
             consecutive = 1;
 
-            if(iterations == size){
-                increment *= -1;
-            }
+            if(iterations == size) increment *= -1;
 
             if(direction == 1){
                 // while rising
@@ -474,7 +496,7 @@ void checkGameState(int** board, int size, int winscore, int * gamestate, struct
                         consecutive++;
                         if(consecutive == winscore){
                             *gamestate = GAME_WON;
-                            return;
+                            if(!automated) return;
                         }
                     } else {
                         consecutive = 1;
@@ -485,11 +507,10 @@ void checkGameState(int** board, int size, int winscore, int * gamestate, struct
                 // printf("consecutive: %d, ", consecutive);
                 previous_sign = current_sign;
 
-                if(direction == 1){
+                if(direction == 1)
                     column++;
-                } else if(direction ==2){
+                else if(direction ==2)
                     column--;
-                }
                 row++;
             }
             iterations += increment;
@@ -502,7 +523,70 @@ void checkGameState(int** board, int size, int winscore, int * gamestate, struct
         return;
     }
 
+    traverse_board(weightboard, size);
+
     return;
+}
+
+void push_scope(int * ai_scope, int scopesize, int value)
+{
+    for(int i=(scopesize-1); i>0; i--){
+        ai_scope[i] = ai_scope[i-1];
+    }
+    ai_scope[0] = value;
+}
+
+void flush_scope(int * ai_scope, int scopesize)
+{
+    for(int i=0; i<scopesize; i++){
+        ai_scope[i] = 0;
+    }
+}
+
+void ai_add_weights(int ** board, int ** weightboard, int weight, int * ai_scope_row, int * ai_scope_column, int scopesize)
+{
+    for(int i = 0; i<scopesize; i++){
+        int row = ai_scope_row[i];
+        int column = ai_scope_column[i];
+        // printf("r%d c%d,\t", row+1, column+1);
+        if(board[row][column] != 0) weightboard[row][column] = -1;
+        if(weight > weightboard[row][column] && weightboard[row][column] >= 0){
+            weightboard[row][column] = weight;
+        }
+    }
+    // printf("\n");
+}
+
+int ai_check_patterns(int * ai_scope, int scopesize, int player_mark)
+{
+    int player_count = 0;
+    int opponent_count = 0;
+
+    // printf("Checking for patterns on scope:\t");
+    // for(int i=0; i<scopesize; i++){
+    //     printf("%d", ai_scope[i]);
+    // }
+    // printf("\n");
+
+    for(int i=0; i<scopesize; i++){
+        if(ai_scope[i] == player_mark)
+            player_count++;
+        else if(ai_scope[i] == opposite_mark(player_mark))
+            opponent_count++;
+    }
+    if(player_count>0 && opponent_count == 0)
+        return (player_count*2)+1;
+    else if(player_count == 0 && opponent_count > 0)
+        return (opponent_count*2);
+
+    return 0;
+}
+
+int opposite_mark(int mark){
+    if(mark == MARK_X)
+        return MARK_O;
+    else
+        return MARK_X;
 }
 
 void displayBoard(int ** board, int size)
@@ -624,5 +708,5 @@ int readinput(char s[], int maxlen)
 
 void printHelpPage()
 {
-    printf("THIS IS THE HELP PAGE");
+    printf("THIS IS THE HELP PAGE\n");
 }
