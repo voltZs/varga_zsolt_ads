@@ -22,6 +22,8 @@ struct player{
     int mark;
     bool automated;
     char name[20];
+    int best_row;
+    int best_column;
 };
 
 struct turn{
@@ -32,6 +34,7 @@ struct turn{
 };
 
 void setupGame();
+void switchPlayer(struct player *** ,struct player **, struct player **);
 void initBoard(int***, int);
 void traverse_board(int**, int);
 void free_board(int ***, int);
@@ -44,7 +47,12 @@ int checkGameCommands(char);
 int playUndo(struct turn **, struct turn **, int **);
 int playRedo(struct turn **, struct turn **, int **);
 void checkGameState(int **, int, int, int *, struct player **);
+void checkTie(int **, int, int *);
+void checkHorizontal(int**, int **, int, int, int *, struct player **);
+void checkVertical(int**, int **, int, int, int *, struct player **);
+void checkDiagonal(int**, int **, int, int, int *, struct player **);
 void push_scope(int*, int, int);
+void ai_set_best_move(int**, int, struct player **);
 void ai_add_weights(int**, int **, int, int *, int *, int);
 int ai_check_patterns(int*, int, int);
 void flush_scope(int*, int);
@@ -64,7 +72,7 @@ void printHelpPage();
 /////////////////////////////////  MAIN  ///////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
 int main(){
-    int gb_size = 5;
+    int gb_size = 3;
     int ** board;
     initBoard(&board, gb_size);
 
@@ -86,7 +94,7 @@ int main(){
 
     playerTwo = malloc(sizeof(struct player));
     playerTwo -> mark = MARK_O;
-    playerTwo -> automated = false;
+    playerTwo -> automated = true;
 
     struct player ** currPlayer = &playerTwo;
 
@@ -97,21 +105,16 @@ int main(){
         if(sessionstate == GAME)
         {
             while(1){
-                traverse_board(board, gb_size);
                 displayBoard(board, gb_size);
+                traverse_board(board, gb_size);
+                printf("\n");
+                switchPlayer(&currPlayer, &playerOne, &playerTwo);
                 checkGameState(board, gb_size, winscore, &gamestate, currPlayer);
-
                 if(gamestate)
                 {
+                    switchPlayer(&currPlayer, &playerOne, &playerTwo);
                     break;
-                } else {
-                    if(*currPlayer == playerOne){
-                        currPlayer = &playerTwo;
-                    }else{
-                        currPlayer = &playerOne;
-                    }
                 }
-
                 playTurn(currPlayer, &history, &undoneHistory, board, gb_size);
             }
 
@@ -153,7 +156,13 @@ int main(){
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
 
-
+void switchPlayer(struct player *** currPlayer ,struct player ** playerOne, struct player ** playerTwo){
+    if(**currPlayer == *playerOne){
+        *currPlayer = playerTwo;
+    }else{
+        *currPlayer = playerOne;
+    }
+}
 
 
 
@@ -169,6 +178,10 @@ void playTurn(struct player ** currPlayer, struct turn ** history, struct turn *
 
     if(automated){
         printf("Computer making a move.\n");
+        printf("Best row: %d", (*currPlayer) -> best_row);
+        printf("Best column: %d", (*currPlayer) -> best_column);
+        row = (*currPlayer) -> best_row;
+        column = (*currPlayer) -> best_column;
         // LOGIC FOR PICKING ROW AND COLUMN AS COMPUTER
     } else {
         char input[3];
@@ -372,18 +385,46 @@ int rowToInt(char row)
 
 void checkGameState(int** board, int size, int winscore, int * gamestate, struct player ** player)
 {
-    int consecutive = 1;
-    int current_sign;
-    int previous_sign;
-    int freeSpaces = 0;
-
-
-    bool automated = (*player) -> automated;
-    if(automated){
-    }
     // move theee in the if above
     int ** weightboard;
     initBoard(&weightboard, size);
+
+    checkTie(board, size, gamestate);
+
+    checkHorizontal(board, weightboard, size, winscore, gamestate, player);
+    checkVertical(board, weightboard, size, winscore, gamestate, player);
+    checkDiagonal(board, weightboard, size, winscore, gamestate, player);
+
+    traverse_board(weightboard, size);
+
+    return;
+}
+
+void checkTie(int ** board, int size, int * gamestate)
+{
+    int freeSpaces = 0;
+    for(int row = 0; row<size; row++)
+    {
+        for(int column = 0; column<size; column++){
+            if(board[row][column] == 0) freeSpaces++;
+        }
+    }
+    if(freeSpaces == 0) *gamestate = GAME_TIE;
+    return;
+}
+
+
+void checkHorizontal(int** board, int ** weightboard, int size, int winscore, int * gamestate, struct player ** player)
+{
+    if(*gamestate){
+        return;
+    }
+
+    int consecutive = 1;
+    int current_sign;
+    int previous_sign;
+
+    bool automated = (*player) -> automated;
     int * ai_scope = calloc(winscore, sizeof(int));
     int * ai_scope_row = calloc(winscore, sizeof(int));
     int * ai_scope_column = calloc(winscore, sizeof(int));
@@ -400,31 +441,50 @@ void checkGameState(int** board, int size, int winscore, int * gamestate, struct
                     consecutive++;
                     if(consecutive == winscore){
                         *gamestate = GAME_WON;
-                        if(!automated) return;
+                        return;
                     }
                 } else {
                     consecutive = 1;
                 }
             } else {
                 consecutive = 1;
-                freeSpaces++;
             }
 
-            push_scope(ai_scope, winscore, current_sign);
-            push_scope(ai_scope_row, winscore, row);
-            push_scope(ai_scope_column, winscore, column);
-            // only do pattern checs if we are winsize elements into the array
-            if((column+1) >= winscore){
-                int weight = ai_check_patterns(ai_scope, winscore, (*player)->mark);
-                // printf("weight: %d\n", weight);
-                ai_add_weights(board, weightboard, weight, ai_scope_row, ai_scope_column, winscore);
+            if(automated){
+                push_scope(ai_scope, winscore, current_sign);
+                push_scope(ai_scope_row, winscore, row);
+                push_scope(ai_scope_column, winscore, column);
+                // only do pattern checs if we are winsize elements into the array
+                if((column+1) >= winscore){
+                    int weight = ai_check_patterns(ai_scope, winscore, (*player)->mark);
+                    // printf("weight: %d\n", weight);
+                    ai_add_weights(board, weightboard, weight, ai_scope_row, ai_scope_column, winscore);
+                }
+                ai_set_best_move(weightboard, size, player);
             }
-
 
             previous_sign = current_sign;
         }
-        flush_scope(ai_scope, winscore);
     }
+    free(ai_scope);
+    free(ai_scope_row);
+    free(ai_scope_column);
+}
+
+void checkVertical(int** board, int ** weightboard, int size, int winscore, int * gamestate, struct player ** player)
+{
+    if(*gamestate){
+        return;
+    }
+
+    int consecutive = 1;
+    int current_sign;
+    int previous_sign;
+
+    bool automated = (*player) -> automated;
+    int * ai_scope = calloc(winscore, sizeof(int));
+    int * ai_scope_row = calloc(winscore, sizeof(int));
+    int * ai_scope_column = calloc(winscore, sizeof(int));
 
     // check vertical
     for(int column = 0; column<size; column++){
@@ -438,7 +498,7 @@ void checkGameState(int** board, int size, int winscore, int * gamestate, struct
                     consecutive++;
                     if(consecutive == winscore){
                         *gamestate = GAME_WON;
-                        if(!automated) return;
+                        return;
                     }
                 } else {
                     consecutive = 1;
@@ -446,9 +506,41 @@ void checkGameState(int** board, int size, int winscore, int * gamestate, struct
             } else {
                 consecutive = 1;
             }
+
+            if(automated){
+                push_scope(ai_scope, winscore, current_sign);
+                push_scope(ai_scope_row, winscore, row);
+                push_scope(ai_scope_column, winscore, column);
+                // only do pattern checs if we are winsize elements into the array
+                if((row+1) >= winscore){
+                    int weight = ai_check_patterns(ai_scope, winscore, (*player)->mark);
+                    // printf("weight: %d\n", weight);
+                    ai_add_weights(board, weightboard, weight, ai_scope_row, ai_scope_column, winscore);
+                }
+                ai_set_best_move(weightboard, size, player);
+            }
+
             previous_sign = current_sign;
         }
     }
+    free(ai_scope);
+    free(ai_scope_row);
+    free(ai_scope_column);
+}
+void checkDiagonal(int** board, int ** weightboard, int size, int winscore, int * gamestate, struct player ** player)
+{
+    if(*gamestate){
+        return;
+    }
+
+    int consecutive = 1;
+    int current_sign;
+    int previous_sign;
+
+    bool automated = (*player) -> automated;
+    int * ai_scope = calloc(winscore, sizeof(int));
+    int * ai_scope_row = calloc(winscore, sizeof(int));
+    int * ai_scope_column = calloc(winscore, sizeof(int));
 
     // check diagonal
     int increment;
@@ -496,7 +588,7 @@ void checkGameState(int** board, int size, int winscore, int * gamestate, struct
                         consecutive++;
                         if(consecutive == winscore){
                             *gamestate = GAME_WON;
-                            if(!automated) return;
+                            return;
                         }
                     } else {
                         consecutive = 1;
@@ -504,6 +596,20 @@ void checkGameState(int** board, int size, int winscore, int * gamestate, struct
                 } else {
                     consecutive = 1;
                 }
+
+                if(automated){
+                    push_scope(ai_scope, winscore, current_sign);
+                    push_scope(ai_scope_row, winscore, row);
+                    push_scope(ai_scope_column, winscore, column);
+                    // only do pattern checs if we are winsize elements into the array
+                    if((index+1) >= winscore){
+                        int weight = ai_check_patterns(ai_scope, winscore, (*player)->mark);
+                        // printf("weight: %d\n", weight);
+                        ai_add_weights(board, weightboard, weight, ai_scope_row, ai_scope_column, winscore);
+                    }
+                    ai_set_best_move(weightboard, size, player);
+                }
+
                 // printf("consecutive: %d, ", consecutive);
                 previous_sign = current_sign;
 
@@ -517,16 +623,11 @@ void checkGameState(int** board, int size, int winscore, int * gamestate, struct
         }
     }
 
-
-    if(!freeSpaces){
-        *gamestate = GAME_TIE;
-        return;
-    }
-
-    traverse_board(weightboard, size);
-
-    return;
+    free(ai_scope);
+    free(ai_scope_row);
+    free(ai_scope_column);
 }
+
 
 void push_scope(int * ai_scope, int scopesize, int value)
 {
@@ -541,6 +642,26 @@ void flush_scope(int * ai_scope, int scopesize)
     for(int i=0; i<scopesize; i++){
         ai_scope[i] = 0;
     }
+}
+
+void ai_set_best_move(int ** weightboard, int size, struct player ** ai_player)
+{
+    int best_value = 0;
+    int best_row =0;
+    int best_column = 0;
+    for(int row=0; row<size; row++){
+        for(int column=0; column<size; column++){
+            if(weightboard[row][column] > best_value)
+            {
+                best_value = weightboard[row][column];
+                best_row = row;
+                best_column = column;
+            }
+        }
+    }
+
+    (*ai_player) -> best_row = best_row;
+    (*ai_player) -> best_column = best_column;
 }
 
 void ai_add_weights(int ** board, int ** weightboard, int weight, int * ai_scope_row, int * ai_scope_column, int scopesize)
