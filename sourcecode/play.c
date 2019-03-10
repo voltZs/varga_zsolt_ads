@@ -66,12 +66,26 @@ int readinput(char s[], int);
 int rowToInt(char);
 char getSign(int);
 void printHelpPage();
+void print_image(FILE *fptr);
+#define MAX_LEN 50
 
 
 ////////////////////////////////////////////////////////////////////////////////
 /////////////////////////////////  MAIN  ///////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
 int main(){
+    char *filename = "title_ascii.txt";
+    FILE *fptr = NULL;
+
+    if((fptr = fopen(filename,"r")) == NULL)
+    {
+        fprintf(stderr,"error opening %s\n",filename);
+        return 1;
+    }
+
+    print_image(fptr);
+
+    fclose(fptr);
     int gb_size = 3;
     int ** board;
     initBoard(&board, gb_size);
@@ -155,6 +169,14 @@ int main(){
 
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
+
+void print_image(FILE *fptr)
+{
+   char read_string[MAX_LEN];
+
+   while(fgets(read_string,sizeof(read_string),fptr) != NULL)
+       printf("%s",read_string);
+}
 
 void switchPlayer(struct player *** currPlayer ,struct player ** playerOne, struct player ** playerTwo){
     if(**currPlayer == *playerOne){
@@ -394,8 +416,12 @@ void checkGameState(int** board, int size, int winscore, int * gamestate, struct
     checkHorizontal(board, weightboard, size, winscore, gamestate, player);
     checkVertical(board, weightboard, size, winscore, gamestate, player);
     checkDiagonal(board, weightboard, size, winscore, gamestate, player);
+    if((*player) -> automated){
+        ai_set_best_move(weightboard, size, player);
+    }
 
     traverse_board(weightboard, size);
+    free_board(&weightboard, size);
 
     return;
 }
@@ -460,7 +486,6 @@ void checkHorizontal(int** board, int ** weightboard, int size, int winscore, in
                     // printf("weight: %d\n", weight);
                     ai_add_weights(board, weightboard, weight, ai_scope_row, ai_scope_column, winscore);
                 }
-                ai_set_best_move(weightboard, size, player);
             }
 
             previous_sign = current_sign;
@@ -517,7 +542,6 @@ void checkVertical(int** board, int ** weightboard, int size, int winscore, int 
                     // printf("weight: %d\n", weight);
                     ai_add_weights(board, weightboard, weight, ai_scope_row, ai_scope_column, winscore);
                 }
-                ai_set_best_move(weightboard, size, player);
             }
 
             previous_sign = current_sign;
@@ -607,7 +631,6 @@ void checkDiagonal(int** board, int ** weightboard, int size, int winscore, int 
                         // printf("weight: %d\n", weight);
                         ai_add_weights(board, weightboard, weight, ai_scope_row, ai_scope_column, winscore);
                     }
-                    ai_set_best_move(weightboard, size, player);
                 }
 
                 // printf("consecutive: %d, ", consecutive);
@@ -647,21 +670,40 @@ void flush_scope(int * ai_scope, int scopesize)
 void ai_set_best_move(int ** weightboard, int size, struct player ** ai_player)
 {
     int best_value = 0;
-    int best_row =0;
-    int best_column = 0;
+    int num_of_bests = 0;
+    int * best_rows = malloc(sizeof(int) * size *size);
+    int * best_columns = malloc(sizeof(int) * size *size);
+
     for(int row=0; row<size; row++){
         for(int column=0; column<size; column++){
-            if(weightboard[row][column] > best_value)
-            {
+            if (weightboard[row][column] == best_value){
+                num_of_bests ++;
+                best_rows[num_of_bests] =  row;
+                best_columns[num_of_bests] =  column;
                 best_value = weightboard[row][column];
-                best_row = row;
-                best_column = column;
+                printf("%d", best_value);
+
+            } else if(weightboard[row][column] > best_value)
+            {
+                printf("\nbest_value: ");
+                num_of_bests = 0;
+                best_rows[num_of_bests] = row;
+                best_columns[num_of_bests] =  column;
+                best_value = weightboard[row][column];
+                printf("%d", best_value);
             }
         }
     }
+    printf("\n");
 
-    (*ai_player) -> best_row = best_row;
-    (*ai_player) -> best_column = best_column;
+    int random = rand() % (num_of_bests+1);
+
+    (*ai_player) -> best_row = best_rows[random];
+    (*ai_player) -> best_column = best_columns[random];
+    printf("picking: %d at position(%d,%d)\n", weightboard[best_rows[random]][best_columns[random]], best_rows[random], best_columns[random]);
+
+    free(best_rows);
+    free(best_columns);
 }
 
 void ai_add_weights(int ** board, int ** weightboard, int weight, int * ai_scope_row, int * ai_scope_column, int scopesize)
@@ -726,7 +768,7 @@ void displayBoard(int ** board, int size)
 
 void printTop(int size)
 {
-    printf("\t");
+    printf("\t\t");
     printf("    ");
     for(int i=0; i<size; i++){
         printf("%d", i+1);
@@ -739,9 +781,10 @@ void printRow(char letter, int size, int* values)
 {
     printDivider(size);
 
-    printf("\t");
+    printf("\t\t");
     printLine(size, values, 1);
 
+    printf("\t");
     for(int i=0; i<8; i++){
         if(i==6){
             printf("%c", letter);
@@ -751,7 +794,7 @@ void printRow(char letter, int size, int* values)
     }
     printLine(size, values, 2);
 
-    printf("\t");
+    printf("\t\t");
     printLine(size, values, 3);
 }
 
@@ -799,7 +842,7 @@ void printLine(int size, int* values, int vertical)
 
 void printDivider(int size)
 {
-    printf("\t");
+    printf("\t\t");
     for(int i=0; i<((size*7)+(size+1)); i++){
         printf("-");
     }
