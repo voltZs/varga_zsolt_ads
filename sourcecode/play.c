@@ -16,12 +16,15 @@
 
 #define EXIT 0
 
+#define MAX_STR_LEN 250
+#define MAX_NAME_LEN 20
+
 typedef enum { false, true } bool;
 
 struct player{
     int mark;
     bool automated;
-    char name[20];
+    char * name;
     int best_row;
     int best_column;
 };
@@ -33,12 +36,9 @@ struct turn{
     struct turn * next;
 };
 
-void print_ascii(char *);
-void wtfile_end(char *, char *);
-int get_csv_size(char *);
-int * get_csv_linesizes(char *, int);
-char *** get_csv_array(char *, int, int*);
-void setupGame();
+
+void setupGame(struct player *, struct player *);
+void changePlayerName(struct player *, char*);
 void switchPlayer(struct player *** ,struct player **, struct player **);
 void initBoard(int***, int);
 void traverse_board(int**, int);
@@ -47,10 +47,11 @@ void push_turn(struct turn **, struct turn *);
 void traverse_turns(struct turn *);
 void flush_turns(struct turn **);
 struct turn * pop_turn(struct turn **);
-void playTurn(struct player**, struct turn**, struct turn**, int**, int);
+void playTurn(struct player**, struct turn**, int*, struct turn**, int**, int);
 int checkGameCommands(char);
-int playUndo(struct turn **, struct turn **, int **);
-int playRedo(struct turn **, struct turn **, int **);
+int playUndo(struct turn **, int*, struct turn **, int **);
+int playRedo(struct turn **, int*, struct turn **, int **);
+void saveGame(char *, struct player *,  struct player *,  struct player *, int, int, struct turn **, int);
 void checkGameState(int **, int, int, int *, struct player **);
 void checkTie(int **, int, int *);
 void checkHorizontal(int**, int **, int, int, int *, struct player **);
@@ -71,6 +72,11 @@ int readinput(char s[], int);
 int rowToInt(char);
 char getSign(int);
 void printHelpPage();
+void print_ascii(char *);
+void wtfile_end(char *, char *);
+int get_csv_size(char *);
+int * get_csv_linesizes(char *, int);
+char *** get_csv_array(char *, int, int*);
 
 
 
@@ -82,18 +88,18 @@ int main(){
     print_ascii("title_ascii.txt");
 
 
-    int csv_size = get_csv_size("games_history.txt");
-    printf("csv_size: %d\n", csv_size);
-    int * linesizes = get_csv_linesizes("games_history.txt", csv_size);
-    char *** csv_array = get_csv_array("games_history.txt", csv_size, linesizes);
-
-    for(int i = 0; i<csv_size; i++){
-        printf("%d values: ", linesizes[i]);
-        for(int j=0; j<linesizes[i]; j++){
-            printf("%s, ", csv_array[i][j]);
-        }
-        printf("\n");
-    }
+    // int csv_size = get_csv_size("games_history.txt");
+    // printf("csv_size: %d\n", csv_size);
+    // int * linesizes = get_csv_linesizes("games_history.txt", csv_size);
+    // char *** csv_array = get_csv_array("games_history.txt", csv_size, linesizes);
+    //
+    // for(int i = 0; i<csv_size; i++){
+    //     printf("%d values: ", linesizes[i]);
+    //     for(int j=0; j<linesizes[i]; j++){
+    //         printf("%s, ", csv_array[i][j]);
+    //     }
+    //     printf("\n");
+    // }
 
     int gb_size = 3;
     int ** board;
@@ -105,6 +111,7 @@ int main(){
     // both implemented as stacks
     struct turn * history;
     history = NULL;
+    int turns_taken = 0;
     struct turn * undoneHistory;
     undoneHistory = NULL;
 
@@ -117,7 +124,7 @@ int main(){
 
     playerTwo = malloc(sizeof(struct player));
     playerTwo -> mark = MARK_O;
-    playerTwo -> automated = true;
+    playerTwo -> automated = false;
 
     struct player ** currPlayer = &playerTwo;
 
@@ -127,6 +134,7 @@ int main(){
     {
         if(sessionstate == GAME)
         {
+            setupGame(playerOne, playerTwo);
             while(1){
                 displayBoard(board, gb_size);
                 traverse_board(board, gb_size);
@@ -138,7 +146,7 @@ int main(){
                     switchPlayer(&currPlayer, &playerOne, &playerTwo);
                     break;
                 }
-                playTurn(currPlayer, &history, &undoneHistory, board, gb_size);
+                playTurn(currPlayer, &history, &turns_taken, &undoneHistory, board, gb_size);
             }
 
             if(gamestate == GAME_WON){
@@ -146,6 +154,7 @@ int main(){
             } else if(gamestate == GAME_TIE){
                 printf("It's a tie!\n");
             }
+            saveGame("games_history.txt", playerOne, playerTwo, *currPlayer, gb_size, winscore, &history, turns_taken);
         }
 
         if(sessionstate == LEADERBOARD)
@@ -168,27 +177,38 @@ int main(){
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
 
-
-
-void print_ascii(char * filename)
+void setupGame(struct player * playerOne, struct player * playerTwo)
 {
-    FILE *file = NULL;
-
-    if((file = fopen(filename,"r")) == NULL)
-    {
-        printf("Couldn't open file %s\n",filename);
-        return;
+    changePlayerName(playerOne, "Player 1");
+    if(playerTwo->automated){
+        playerTwo->name = "Computer";
+    } else {
+        changePlayerName(playerTwo, "Player 2");
     }
 
-    char read_string[10];
-
-    while(fgets(read_string,sizeof(read_string),file) != NULL)
-       printf("%s",read_string);
-
-    fclose(file);
 }
 
-void wtfile_end(char * text, char * filename)
+void changePlayerName(struct player * player, char* default_name)
+{
+    char input[MAX_NAME_LEN];
+    printf("%s: Enter your name to customise or press enter.\n", default_name);
+    readinput(input, MAX_NAME_LEN);
+    printf("Entered name: %s\n", input);
+    char * string = malloc(sizeof(char)*MAX_NAME_LEN);
+    for(int i=0; i<MAX_NAME_LEN; i++){
+        string[i] = input[i];
+        if(input[i] == '\0') break;
+    }
+    if(input[0] == '\0'){
+        player->name = default_name;
+    }
+    player->name = string;
+
+}
+
+void saveGame(char * filename, struct player * playerOne,
+            struct player * playerTwo,  struct player * currPlayer,
+            int gb_size, int winscore, struct turn ** history, int turns_taken)
 {
     FILE *file = NULL;
     if((file = fopen(filename,"a")) == NULL)
@@ -196,129 +216,39 @@ void wtfile_end(char * text, char * filename)
         printf("Couldn't open file %s\n",filename);
         return;
     }
-    fputs(text, file);
+
+    fprintf(file, "%s,", playerOne->name);
+    fprintf(file, "%d,", playerOne->mark);
+    fprintf(file, "%s,", playerTwo->name);
+    fprintf(file, "%d,", playerTwo->mark);
+    fprintf(file, "%d,", currPlayer->mark);
+    fprintf(file, "%d,", gb_size);
+    fprintf(file, "%d,", winscore);
+
+    struct turn ** turn_array = malloc(sizeof(struct turn*) * turns_taken);
+    printf("turns taken: %d\n", turns_taken);
+    for(int i=(turns_taken-1); i>=0; i--){
+        turn_array[i] = pop_turn(history);
+    }
+
+    // mark of first turn
+    fprintf(file, "%d,", (turn_array[0]->owner)->mark);
+    for(int i=0; i<turns_taken; i++){
+        fprintf(file, "%d,", turn_array[i] -> row);
+        fprintf(file, "%d", turn_array[i] -> column);
+        if(i==turns_taken-1) fprintf(file, "\n");
+        else fprintf(file, ",");
+        free(turn_array[i]);
+    }
+    free(turn_array);
+
     fclose(file);
 }
 
-int get_csv_size(char * filename){
-    FILE *file = NULL;
-    if((file = fopen(filename,"r")) == NULL)
-    {
-        printf("Couldn't open file %s\n",filename);
-        return 0 ;
-    }
-    // check size of document
-    char read_line[250];
-    int num_of_lines = 0;
-    while(fgets(read_line, sizeof(read_line), file) != 0)
-    {
-        num_of_lines ++;
-    }
 
-    fclose(file);
-    return num_of_lines;
-}
-
-int * get_csv_linesizes(char * filename, int num_of_lines){
-    int * linesizes = malloc(sizeof(int) * num_of_lines);
-
-    FILE *file = NULL;
-    if((file = fopen(filename,"r")) == NULL)
-    {
-        printf("Couldn't open file %s\n",filename);
-        return linesizes;
-    }
-
-    char read_line[250];
-    int curr = 0;
-    while(fgets(read_line, sizeof(read_line), file) != 0)
-    {
-        int num_of_vals = 1;
-        for(int i=0; i<250; i++)
-        {
-            if(read_line[i] == '\n')
-                break;
-            else if(read_line[i] == ',')
-                num_of_vals++;
-        }
-        linesizes[curr] = num_of_vals;
-        curr++;
-    }
-    fclose(file);
-    return linesizes;
-}
-
-char *** get_csv_array(char * filename, int csv_size, int * csv_linesizes)
+void switchPlayer(struct player *** currPlayer ,
+                struct player ** playerOne, struct player ** playerTwo)
 {
-    char *** csv_array = malloc(sizeof(char**) * csv_size);
-
-    FILE *file = NULL;
-    if((file = fopen(filename,"r")) == NULL)
-    {
-        printf("Couldn't open file %s\n",filename);
-        return csv_array;
-    }
-
-    char read_line[250];
-    int curr_line =0;
-    while(fgets(read_line, sizeof(read_line), file) != 0)
-    {
-        int num_of_values = csv_linesizes[curr_line];
-        int * word_lengths = malloc(sizeof(int) * num_of_values);
-
-        int curr_word = 0;
-        int num_of_chars = 0;
-        for(int i=0; i<250; i++)
-        {
-            if(read_line[i] == '\n'){
-                word_lengths[curr_word] = num_of_chars;
-                break;
-            }else if(read_line[i] == ','){
-                word_lengths[curr_word] = num_of_chars;
-                num_of_chars = 0;
-                curr_word++;
-            } else {
-                num_of_chars++;
-            }
-        }
-
-        for(int i = 0; i< num_of_values; i++){
-            printf("%d, ", word_lengths[i]);
-        }
-        printf("\n");
-
-        char ** csv_line = malloc(sizeof(char*) * num_of_values);
-
-
-        // int curr_char = 0;
-        int read_chars = 0;
-        // char * value = malloc(sizeof(char) * ((word_lengths[curr_word])+1));
-        for(int curr_word = 0; curr_word<num_of_values; curr_word++){
-            char * value = malloc(sizeof(char) * ((word_lengths[curr_word])+1));
-            for(int i=0; i<word_lengths[curr_word]+1; i++)
-            {
-                if(read_line[read_chars] == '\n' || read_line[read_chars] == ','){
-                    value[i] = '\0';
-                    csv_line[curr_word] = value;
-                    read_chars++;
-                } else {
-                    value[i] = read_line[read_chars];
-                    read_chars++;
-                }
-            }
-        }
-
-        csv_array[curr_line] = csv_line;
-        curr_line++;
-        free(word_lengths);
-    }
-
-    fclose(file);
-
-    return csv_array;
-}
-
-void switchPlayer(struct player *** currPlayer ,struct player ** playerOne, struct player ** playerTwo){
     if(**currPlayer == *playerOne){
         *currPlayer = playerTwo;
     }else{
@@ -328,12 +258,12 @@ void switchPlayer(struct player *** currPlayer ,struct player ** playerOne, stru
 
 
 
-void setupGame()
+
+
+void playTurn(struct player ** currPlayer, struct turn ** history,
+                    int* turns_taken, struct turn ** undoneHistory,
+                    int** board, int size)
 {
-
-}
-
-void playTurn(struct player ** currPlayer, struct turn ** history, struct turn ** undoneHistory, int** board, int size){
     int column = 0;
     int row = 0;
     bool automated = (*currPlayer) -> automated;
@@ -348,23 +278,23 @@ void playTurn(struct player ** currPlayer, struct turn ** history, struct turn *
     } else {
         char input[3];
         char rowChar = 0;
-        printf("Player %d (%c): Enter row followed by column\n", (*currPlayer) -> mark, getSign((*currPlayer) -> mark));
+        printf("%s (%c): Enter row followed by column\n", (*currPlayer) -> name, getSign((*currPlayer) -> mark));
         readinput(input, 3);
         if(input[0] == ':')
         {
             int gamecommand = checkGameCommands(input[1]);
             if(gamecommand){
                 if(gamecommand == UNDO){
-                    if(playUndo(history, undoneHistory, board)){
+                    if(playUndo(history, turns_taken, undoneHistory, board)){
                         return;
                     }
                 } else if(gamecommand == REDO){
-                    if(playRedo(history, undoneHistory, board)){
+                    if(playRedo(history, turns_taken, undoneHistory, board)){
                         return;
                     }
                 }
             }
-            playTurn(currPlayer, history, undoneHistory, board, size);
+            playTurn(currPlayer, history, turns_taken, undoneHistory, board, size);
             return;
         }
         rowChar = input[0];
@@ -375,7 +305,7 @@ void playTurn(struct player ** currPlayer, struct turn ** history, struct turn *
     if(row < 0 || row > size || column < 0 || column > size)
     {
         printf("Not a valid input. Try again.\n");
-        playTurn(currPlayer, history, undoneHistory, board, size);
+        playTurn(currPlayer, history, turns_taken, undoneHistory, board, size);
         return;
     }
 
@@ -388,11 +318,12 @@ void playTurn(struct player ** currPlayer, struct turn ** history, struct turn *
         currTurn -> row = row;
         currTurn -> column = column;
         push_turn(history, currTurn);
+        (*turns_taken)++;
         flush_turns(undoneHistory);
         board[row][column] = (*currPlayer) -> mark;
     }  else {
         printf("This tile is already taken. Make a different move.\n");
-        playTurn(currPlayer, history, undoneHistory, board, size);
+        playTurn(currPlayer, history, turns_taken, undoneHistory, board, size);
         return;
     }
     return;
@@ -411,7 +342,8 @@ int checkGameCommands(char letter)
     return 0;
 }
 
-int playUndo(struct turn ** history, struct turn ** undoneHistory, int ** board)
+int playUndo(struct turn ** history, int *turns_taken,
+        struct turn ** undoneHistory, int ** board)
 {
     if(*history == NULL){
         printf("No moves to undo\n");
@@ -419,6 +351,7 @@ int playUndo(struct turn ** history, struct turn ** undoneHistory, int ** board)
         return 0;
     }
     struct turn * last = pop_turn(history);
+    (*turns_taken)--;
     printf("Popped turn: %c(%d,%d)\n ", getSign((last->owner)->mark), last-> row, last->column);
     push_turn(undoneHistory, last);
     printf("Pushed into undone:  %c(%d,%d)\n", getSign(((*undoneHistory)->owner)->mark), (*undoneHistory)->row, (*undoneHistory)->column);
@@ -427,7 +360,8 @@ int playUndo(struct turn ** history, struct turn ** undoneHistory, int ** board)
     return 1;
 }
 
-int playRedo(struct turn ** history, struct turn ** undoneHistory, int ** board)
+int playRedo(struct turn ** history, int *turns_taken,
+        struct turn ** undoneHistory, int ** board)
 {
     if(*undoneHistory == NULL){
         printf("No moves to redo\n");
@@ -435,6 +369,7 @@ int playRedo(struct turn ** history, struct turn ** undoneHistory, int ** board)
         return 0;
     }
     struct turn * lastUndone = pop_turn(undoneHistory);
+    (*turns_taken)++;
     printf("Popped turn: %c(%d,%d)\n ", getSign((lastUndone->owner)->mark), lastUndone-> row, lastUndone->column);
     push_turn(history, lastUndone);
     printf("Pushed into history:  %c(%d,%d)\n", getSign(((*history)->owner)->mark), (*history)->row, (*history)->column);
@@ -545,7 +480,8 @@ int rowToInt(char row)
     return numeric;
 }
 
-void checkGameState(int** board, int size, int winscore, int * gamestate, struct player ** player)
+void checkGameState(int** board, int size, int winscore, int * gamestate,
+                struct player ** player)
 {
     // move theee in the if above
     int ** weightboard;
@@ -580,7 +516,8 @@ void checkTie(int ** board, int size, int * gamestate)
 }
 
 
-void checkHorizontal(int** board, int ** weightboard, int size, int winscore, int * gamestate, struct player ** player)
+void checkHorizontal(int** board, int ** weightboard, int size, int winscore,
+                    int * gamestate, struct player ** player)
 {
     if(*gamestate){
         return;
@@ -636,7 +573,8 @@ void checkHorizontal(int** board, int ** weightboard, int size, int winscore, in
     free(ai_scope_column);
 }
 
-void checkVertical(int** board, int ** weightboard, int size, int winscore, int * gamestate, struct player ** player)
+void checkVertical(int** board, int ** weightboard, int size, int winscore,
+                    int * gamestate, struct player ** player)
 {
     if(*gamestate){
         return;
@@ -691,7 +629,8 @@ void checkVertical(int** board, int ** weightboard, int size, int winscore, int 
     free(ai_scope_row);
     free(ai_scope_column);
 }
-void checkDiagonal(int** board, int ** weightboard, int size, int winscore, int * gamestate, struct player ** player)
+void checkDiagonal(int** board, int ** weightboard, int size, int winscore,
+                int * gamestate, struct player ** player)
 {
     if(*gamestate){
         return;
@@ -1013,4 +952,152 @@ int readinput(char s[], int maxlen)
 void printHelpPage()
 {
     printf("THIS IS THE HELP PAGE\n");
+}
+
+void print_ascii(char * filename)
+{
+    FILE *file = NULL;
+
+    if((file = fopen(filename,"r")) == NULL)
+    {
+        printf("Couldn't open file %s\n",filename);
+        return;
+    }
+
+    char read_string[10];
+
+    while(fgets(read_string,sizeof(read_string),file) != NULL)
+       printf("%s",read_string);
+
+    fclose(file);
+}
+
+void wtfile_end(char * text, char * filename)
+{
+    FILE *file = NULL;
+    if((file = fopen(filename,"a")) == NULL)
+    {
+        printf("Couldn't open file %s\n",filename);
+        return;
+    }
+    fputs(text, file);
+    fclose(file);
+}
+
+int get_csv_size(char * filename){
+    FILE *file = NULL;
+    if((file = fopen(filename,"r")) == NULL)
+    {
+        printf("Couldn't open file %s\n",filename);
+        return 0 ;
+    }
+    // check size of document
+    char read_line[250];
+    int num_of_lines = 0;
+    while(fgets(read_line, sizeof(read_line), file) != 0)
+    {
+        num_of_lines ++;
+    }
+
+    fclose(file);
+    return num_of_lines;
+}
+
+int * get_csv_linesizes(char * filename, int num_of_lines){
+    int * linesizes = malloc(sizeof(int) * num_of_lines);
+
+    FILE *file = NULL;
+    if((file = fopen(filename,"r")) == NULL)
+    {
+        printf("Couldn't open file %s\n",filename);
+        return linesizes;
+    }
+
+    char read_line[250];
+    int curr = 0;
+    while(fgets(read_line, sizeof(read_line), file) != 0)
+    {
+        int num_of_vals = 1;
+        for(int i=0; i<250; i++)
+        {
+            if(read_line[i] == '\n')
+                break;
+            else if(read_line[i] == ',')
+                num_of_vals++;
+        }
+        linesizes[curr] = num_of_vals;
+        curr++;
+    }
+    fclose(file);
+    return linesizes;
+}
+
+char *** get_csv_array(char * filename, int csv_size, int * csv_linesizes)
+{
+    char *** csv_array = malloc(sizeof(char**) * csv_size);
+
+    FILE *file = NULL;
+    if((file = fopen(filename,"r")) == NULL)
+    {
+        printf("Couldn't open file %s\n",filename);
+        return csv_array;
+    }
+
+    char read_line[250];
+    int curr_line =0;
+    while(fgets(read_line, sizeof(read_line), file) != 0)
+    {
+        int num_of_values = csv_linesizes[curr_line];
+        int * word_lengths = malloc(sizeof(int) * num_of_values);
+
+        int curr_word = 0;
+        int num_of_chars = 0;
+        for(int i=0; i<250; i++)
+        {
+            if(read_line[i] == '\n'){
+                word_lengths[curr_word] = num_of_chars;
+                break;
+            }else if(read_line[i] == ','){
+                word_lengths[curr_word] = num_of_chars;
+                num_of_chars = 0;
+                curr_word++;
+            } else {
+                num_of_chars++;
+            }
+        }
+
+        for(int i = 0; i< num_of_values; i++){
+            printf("%d, ", word_lengths[i]);
+        }
+        printf("\n");
+
+        char ** csv_line = malloc(sizeof(char*) * num_of_values);
+
+
+        // int curr_char = 0;
+        int read_chars = 0;
+        // char * value = malloc(sizeof(char) * ((word_lengths[curr_word])+1));
+        for(int curr_word = 0; curr_word<num_of_values; curr_word++){
+            char * value = malloc(sizeof(char) * ((word_lengths[curr_word])+1));
+            for(int i=0; i<word_lengths[curr_word]+1; i++)
+            {
+                if(read_line[read_chars] == '\n' || read_line[read_chars] == ','){
+                    value[i] = '\0';
+                    csv_line[curr_word] = value;
+                    read_chars++;
+                } else {
+                    value[i] = read_line[read_chars];
+                    read_chars++;
+                }
+            }
+        }
+
+        csv_array[curr_line] = csv_line;
+        curr_line++;
+        free(word_lengths);
+    }
+
+    fclose(file);
+
+    return csv_array;
 }
