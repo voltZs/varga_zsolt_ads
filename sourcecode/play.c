@@ -33,6 +33,11 @@ struct turn{
     struct turn * next;
 };
 
+void print_ascii(char *);
+void wtfile_end(char *, char *);
+int get_csv_size(char *);
+int * get_csv_linesizes(char *, int);
+char *** get_csv_array(char *, int, int*);
 void setupGame();
 void switchPlayer(struct player *** ,struct player **, struct player **);
 void initBoard(int***, int);
@@ -66,26 +71,30 @@ int readinput(char s[], int);
 int rowToInt(char);
 char getSign(int);
 void printHelpPage();
-void print_image(FILE *fptr);
-#define MAX_LEN 50
+
 
 
 ////////////////////////////////////////////////////////////////////////////////
 /////////////////////////////////  MAIN  ///////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
 int main(){
-    char *filename = "title_ascii.txt";
-    FILE *fptr = NULL;
 
-    if((fptr = fopen(filename,"r")) == NULL)
-    {
-        fprintf(stderr,"error opening %s\n",filename);
-        return 1;
+    print_ascii("title_ascii.txt");
+
+
+    int csv_size = get_csv_size("games_history.txt");
+    printf("csv_size: %d\n", csv_size);
+    int * linesizes = get_csv_linesizes("games_history.txt", csv_size);
+    char *** csv_array = get_csv_array("games_history.txt", csv_size, linesizes);
+
+    for(int i = 0; i<csv_size; i++){
+        printf("%d values: ", linesizes[i]);
+        for(int j=0; j<linesizes[i]; j++){
+            printf("%s, ", csv_array[i][j]);
+        }
+        printf("\n");
     }
 
-    print_image(fptr);
-
-    fclose(fptr);
     int gb_size = 3;
     int ** board;
     initBoard(&board, gb_size);
@@ -137,17 +146,6 @@ int main(){
             } else if(gamestate == GAME_TIE){
                 printf("It's a tie!\n");
             }
-
-            // test/ demontration of using pop
-            // struct turn * abcd = pop_turn(&history);
-            // printf("Popped turn: %c(%d,%d);;; ", getSign((abcd->owner)->mark), abcd-> row, abcd->column);
-            // however when popping we would just add it straight to undoneHistory:
-            // push(&undoneHistory, pop_turn(&history));
-
-            // traverse_turns(history);
-            // flush_turns(&history);
-            // traverse_turns(history);
-
         }
 
         if(sessionstate == LEADERBOARD)
@@ -170,12 +168,154 @@ int main(){
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
 
-void print_image(FILE *fptr)
-{
-   char read_string[MAX_LEN];
 
-   while(fgets(read_string,sizeof(read_string),fptr) != NULL)
+
+void print_ascii(char * filename)
+{
+    FILE *file = NULL;
+
+    if((file = fopen(filename,"r")) == NULL)
+    {
+        printf("Couldn't open file %s\n",filename);
+        return;
+    }
+
+    char read_string[10];
+
+    while(fgets(read_string,sizeof(read_string),file) != NULL)
        printf("%s",read_string);
+
+    fclose(file);
+}
+
+void wtfile_end(char * text, char * filename)
+{
+    FILE *file = NULL;
+    if((file = fopen(filename,"a")) == NULL)
+    {
+        printf("Couldn't open file %s\n",filename);
+        return;
+    }
+    fputs(text, file);
+    fclose(file);
+}
+
+int get_csv_size(char * filename){
+    FILE *file = NULL;
+    if((file = fopen(filename,"r")) == NULL)
+    {
+        printf("Couldn't open file %s\n",filename);
+        return 0 ;
+    }
+    // check size of document
+    char read_line[250];
+    int num_of_lines = 0;
+    while(fgets(read_line, sizeof(read_line), file) != 0)
+    {
+        num_of_lines ++;
+    }
+
+    fclose(file);
+    return num_of_lines;
+}
+
+int * get_csv_linesizes(char * filename, int num_of_lines){
+    int * linesizes = malloc(sizeof(int) * num_of_lines);
+
+    FILE *file = NULL;
+    if((file = fopen(filename,"r")) == NULL)
+    {
+        printf("Couldn't open file %s\n",filename);
+        return linesizes;
+    }
+
+    char read_line[250];
+    int curr = 0;
+    while(fgets(read_line, sizeof(read_line), file) != 0)
+    {
+        int num_of_vals = 1;
+        for(int i=0; i<250; i++)
+        {
+            if(read_line[i] == '\n')
+                break;
+            else if(read_line[i] == ',')
+                num_of_vals++;
+        }
+        linesizes[curr] = num_of_vals;
+        curr++;
+    }
+    fclose(file);
+    return linesizes;
+}
+
+char *** get_csv_array(char * filename, int csv_size, int * csv_linesizes)
+{
+    char *** csv_array = malloc(sizeof(char**) * csv_size);
+
+    FILE *file = NULL;
+    if((file = fopen(filename,"r")) == NULL)
+    {
+        printf("Couldn't open file %s\n",filename);
+        return csv_array;
+    }
+
+    char read_line[250];
+    int curr_line =0;
+    while(fgets(read_line, sizeof(read_line), file) != 0)
+    {
+        int num_of_values = csv_linesizes[curr_line];
+        int * word_lengths = malloc(sizeof(int) * num_of_values);
+
+        int curr_word = 0;
+        int num_of_chars = 0;
+        for(int i=0; i<250; i++)
+        {
+            if(read_line[i] == '\n'){
+                word_lengths[curr_word] = num_of_chars;
+                break;
+            }else if(read_line[i] == ','){
+                word_lengths[curr_word] = num_of_chars;
+                num_of_chars = 0;
+                curr_word++;
+            } else {
+                num_of_chars++;
+            }
+        }
+
+        for(int i = 0; i< num_of_values; i++){
+            printf("%d, ", word_lengths[i]);
+        }
+        printf("\n");
+
+        char ** csv_line = malloc(sizeof(char*) * num_of_values);
+
+
+        // int curr_char = 0;
+        int read_chars = 0;
+        // char * value = malloc(sizeof(char) * ((word_lengths[curr_word])+1));
+        for(int curr_word = 0; curr_word<num_of_values; curr_word++){
+            char * value = malloc(sizeof(char) * ((word_lengths[curr_word])+1));
+            for(int i=0; i<word_lengths[curr_word]+1; i++)
+            {
+                if(read_line[read_chars] == '\n' || read_line[read_chars] == ','){
+                    value[i] = '\0';
+                    csv_line[curr_word] = value;
+                    read_chars++;
+                } else {
+                    value[i] = read_line[read_chars];
+                    read_chars++;
+                }
+            }
+        }
+
+        csv_array[curr_line] = csv_line;
+        curr_line++;
+        free(word_lengths);
+    }
+
+    fclose(file);
+
+    return csv_array;
 }
 
 void switchPlayer(struct player *** currPlayer ,struct player ** playerOne, struct player ** playerTwo){
