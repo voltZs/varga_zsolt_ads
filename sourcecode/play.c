@@ -69,6 +69,11 @@ void ai_set_best_move(int**, int, struct player **);
 void ai_add_weights(int**, int **, int, int *, int *, int);
 int ai_check_patterns(int*, int, int);
 void flush_scope(int*, int);
+void changePreferences(int*, int *, int *, struct player *);
+void changeGameboardSize(int *, int *);
+void changeWinScore(int *, int *);
+void changeGameMode(struct player *);
+char * getAutomated(struct player *);
 int opposite_mark(int);
 void displayBoard(int **, int);
 void printDivider(int);
@@ -143,6 +148,7 @@ int main(){
             if(playerOne -> name == NULL) setupPlayers(playerOne, playerTwo);
             initBoard(&board, gb_size);
             while(gamestate == GAME_ON){
+                printf("WINS:\t%s %d --- %d %s\n\n", playerOne -> name, playerOne -> wins, playerTwo-> wins, playerTwo -> name);
                 displayBoard(board, gb_size);
                 switchPlayer(&currPlayer, &playerOne, &playerTwo);
                 checkGameState(board, gb_size, winscore, &gamestate, currPlayer);
@@ -155,7 +161,7 @@ int main(){
             }
             if(gamestate == GAME_WON){
                 printf("Player %d (%c) won!\n", (*currPlayer) -> mark, getSign((*currPlayer) -> mark));
-                (*currPlayer) -> wins ++;
+                (*currPlayer) -> wins++;
             } else if(gamestate == GAME_TIE){
                 printf("It's a tie!\n");
             }
@@ -164,6 +170,8 @@ int main(){
             gamestate = GAME_ON;
             promptNextRound(&sessionstate);
         }
+        playerOne -> wins = 0;
+        playerTwo -> wins = 0;
 
         if(sessionstate == OLD_GAMES)
         {
@@ -172,7 +180,7 @@ int main(){
 
         if(sessionstate == PREFERENCES)
         {
-
+            changePreferences(&sessionstate, &gb_size, &winscore, playerTwo);
         }
     }
 
@@ -182,10 +190,80 @@ int main(){
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
 
+void changePreferences(int * sessionstate, int * gb_size, int * winscore, struct player * playerTwo){
+    char input[MAX_COMMAND_LEN];
+    printf("\n-PREFERENCES-\n");
+    printf("\tENTER OPTION TO MODIFY:\n");
+    printf("\t1 | GAMEBOARD SIZE\t(%d)\n", *gb_size);
+    printf("\t2 | WIN ROW SIZE\t(%d)\n", *winscore);
+    printf("\t3 | OPPONENT\t\t(%s)\n", getAutomated(playerTwo));
+    printf("\t4 | BACK TO MAIN MENU\n\n");
+    readinput(input, MAX_COMMAND_LEN);
+    if(input[0] == '1') changeGameboardSize(gb_size, winscore);
+    else if (input[0] == '2') changeWinScore(gb_size, winscore);
+    else if (input[0] == '3') changeGameMode(playerTwo);
+    else if (input[0] == '4') *sessionstate = MENU;
+    if(input[0] != '4'){
+        changePreferences(sessionstate, gb_size, winscore, playerTwo);
+    }
+}
+
+void changeGameboardSize(int * gb_size, int * winscore)
+{
+    char input[MAX_COMMAND_LEN];
+    printf("Enter new gameoard size (3 - 10):\n");
+    readinput(input, MAX_COMMAND_LEN);
+    int new_size = atoi(input);
+    if(new_size <=10 && new_size > 2){
+        *gb_size = new_size;
+        if(new_size<= *winscore) *winscore = new_size;
+    } else {
+        printf("This value is not valid. ");
+        changeGameboardSize(gb_size, winscore);
+    }
+}
+void changeWinScore(int * gb_size, int * winscore)
+{
+    char input[MAX_COMMAND_LEN];
+    printf("Enter new win score size (3 - 10):\n");
+    readinput(input, MAX_COMMAND_LEN);
+    int new_size = atoi(input);
+    if(new_size <= 10 && new_size > 2){
+        *winscore = new_size;
+        if(new_size >= *gb_size) *gb_size = new_size;
+    } else {
+        printf("This value is not valid. ");
+        changeWinScore(gb_size, winscore);
+    }
+}
+void changeGameMode(struct player * playerTwo)
+{
+    char input[MAX_COMMAND_LEN];
+    printf("Would you like to play agains person or computer? p/c\n");
+    readinput(input, MAX_COMMAND_LEN);
+    if(input[0] == 'p' || input[0] == 'P')
+        playerTwo->automated = false;
+    else if (input[0] == 'c' || input[0] == 'C')
+        playerTwo->automated = true;
+    else {
+        printf("Not a valid input.\n");
+        changeGameMode(playerTwo);
+    }
+}
+
+char * getAutomated(struct player * player)
+{
+    if(player -> automated)
+        return "COMPUTER";
+    else
+        return "HUMAN";
+}
+
 void chooseMode(int * sessionstate)
 {
     char input[MAX_COMMAND_LEN];
-    printf("\tENTER OPTION AND PRESS ENTER:\n\tNEW GAME = 1\n\tPREVIOUS GAMES = 2\n\tPREFERENCES = 3\n\tQUIT = 4\n\n");
+    printf("\n-MAIN MENU-\n");
+    printf("\tENTER OPTION AND PRESS ENTER:\n\t1 | NEW GAME\n\t2 | PREVIOUS GAMES\n\t3 | PREFERENCES\n\t4 | QUIT\n\n");
     readinput(input, MAX_COMMAND_LEN);
     if(input[0] == '1') *sessionstate = GAME;
     else if (input[0] == '2') *sessionstate = OLD_GAMES;
@@ -213,6 +291,7 @@ void setupPlayers(struct player * playerOne, struct player * playerTwo)
     } else {
         changePlayerName(playerTwo, "Player 2");
     }
+    printf("\n");
 
 }
 
@@ -509,15 +588,13 @@ void checkGameState(int** board, int size, int winscore, int * gamestate,
     int ** weightboard;
     initBoard(&weightboard, size);
 
-    checkTie(board, size, gamestate);
-
     checkHorizontal(board, weightboard, size, winscore, gamestate, player);
     checkVertical(board, weightboard, size, winscore, gamestate, player);
     checkDiagonal(board, weightboard, size, winscore, gamestate, player);
     if((*player) -> automated){
         ai_set_best_move(weightboard, size, player);
     }
-
+    checkTie(board, size, gamestate);
     free_board(&weightboard, size);
 
     return;
@@ -525,6 +602,9 @@ void checkGameState(int** board, int size, int winscore, int * gamestate,
 
 void checkTie(int ** board, int size, int * gamestate)
 {
+    if(*gamestate){
+        return;
+    }
     int freeSpaces = 0;
     for(int row = 0; row<size; row++)
     {
