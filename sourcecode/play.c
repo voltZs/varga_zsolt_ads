@@ -4,20 +4,25 @@
 #define MARK_X 1
 #define MARK_O 2
 
+#define VS_HUMAN 1
+#define VS_COMPUTER 2
+
 #define GAME_WON 1
 #define GAME_TIE 2
+#define GAME_ON 0
 
 #define GAME 1
-#define PREFERENCES 2
-#define LEADERBOARD 3
+#define OLD_GAMES 2
+#define PREFERENCES 3
+#define MENU 4
+#define EXIT 0
 
 #define UNDO 1
 #define REDO 2
 
-#define EXIT 0
-
 #define MAX_STR_LEN 250
 #define MAX_NAME_LEN 20
+#define MAX_COMMAND_LEN 4
 
 typedef enum { false, true } bool;
 
@@ -25,6 +30,7 @@ struct player{
     int mark;
     bool automated;
     char * name;
+    int wins;
     int best_row;
     int best_column;
 };
@@ -36,8 +42,8 @@ struct turn{
     struct turn * next;
 };
 
-
-void setupGame(struct player *, struct player *);
+void chooseMode(int *);
+void setupPlayers(struct player *, struct player *);
 void changePlayerName(struct player *, char*);
 void switchPlayer(struct player *** ,struct player **, struct player **);
 void initBoard(int***, int);
@@ -49,9 +55,10 @@ void flush_turns(struct turn **);
 struct turn * pop_turn(struct turn **);
 void playTurn(struct player**, struct turn**, int*, struct turn**, int**, int);
 int checkGameCommands(char);
+void promptNextRound(int*);
 int playUndo(struct turn **, int*, struct turn **, int **);
 int playRedo(struct turn **, int*, struct turn **, int **);
-void saveGame(char *, struct player *,  struct player *,  struct player *, int, int, struct turn **, int);
+void saveGame(char *, struct player *,  struct player *,  struct player *, int, int, struct turn **, int*);
 void checkGameState(int **, int, int, int *, struct player **);
 void checkTie(int **, int, int *);
 void checkHorizontal(int**, int **, int, int, int *, struct player **);
@@ -103,11 +110,9 @@ int main(){
 
     int gb_size = 3;
     int ** board;
-    initBoard(&board, gb_size);
-
     int winscore = 3;
     int gamestate = 0;
-    int sessionstate = GAME;
+    int sessionstate = MENU;
     // both implemented as stacks
     struct turn * history;
     history = NULL;
@@ -117,28 +122,28 @@ int main(){
 
     struct player * playerOne;
     struct player * playerTwo;
-
     playerOne = malloc(sizeof(struct player));
+    playerOne -> name = NULL;
     playerOne -> mark = MARK_X;
     playerOne -> automated = false;
-
     playerTwo = malloc(sizeof(struct player));
+    playerTwo -> name = NULL;
     playerTwo -> mark = MARK_O;
-    playerTwo -> automated = false;
+    playerTwo -> automated = true;
 
     struct player ** currPlayer = &playerTwo;
 
     //setup game - ask for name, preferred mark, 1 vs 1 or 1 vs computer
     //
-    while(sessionstate)
+    while(sessionstate == MENU)
     {
-        if(sessionstate == GAME)
+        chooseMode(&sessionstate);
+        while(sessionstate == GAME)
         {
-            setupGame(playerOne, playerTwo);
-            while(1){
+            if(playerOne -> name == NULL) setupPlayers(playerOne, playerTwo);
+            initBoard(&board, gb_size);
+            while(gamestate == GAME_ON){
                 displayBoard(board, gb_size);
-                traverse_board(board, gb_size);
-                printf("\n");
                 switchPlayer(&currPlayer, &playerOne, &playerTwo);
                 checkGameState(board, gb_size, winscore, &gamestate, currPlayer);
                 if(gamestate)
@@ -148,16 +153,19 @@ int main(){
                 }
                 playTurn(currPlayer, &history, &turns_taken, &undoneHistory, board, gb_size);
             }
-
             if(gamestate == GAME_WON){
                 printf("Player %d (%c) won!\n", (*currPlayer) -> mark, getSign((*currPlayer) -> mark));
+                (*currPlayer) -> wins ++;
             } else if(gamestate == GAME_TIE){
                 printf("It's a tie!\n");
             }
-            saveGame("games_history.txt", playerOne, playerTwo, *currPlayer, gb_size, winscore, &history, turns_taken);
+            saveGame("games_history.txt", playerOne, playerTwo, *currPlayer, gb_size, winscore, &history, &turns_taken);
+            free_board(&board, gb_size);
+            gamestate = GAME_ON;
+            promptNextRound(&sessionstate);
         }
 
-        if(sessionstate == LEADERBOARD)
+        if(sessionstate == OLD_GAMES)
         {
 
         }
@@ -166,9 +174,6 @@ int main(){
         {
 
         }
-
-
-        sessionstate = EXIT;
     }
 
     return 0;
@@ -177,8 +182,31 @@ int main(){
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
 
-void setupGame(struct player * playerOne, struct player * playerTwo)
+void chooseMode(int * sessionstate)
 {
+    char input[MAX_COMMAND_LEN];
+    printf("\tENTER OPTION AND PRESS ENTER:\n\tNEW GAME = 1\n\tPREVIOUS GAMES = 2\n\tPREFERENCES = 3\n\tQUIT = 4\n\n");
+    readinput(input, MAX_COMMAND_LEN);
+    if(input[0] == '1') *sessionstate = GAME;
+    else if (input[0] == '2') *sessionstate = OLD_GAMES;
+    else if (input[0] == '3') *sessionstate = PREFERENCES;
+    else if (input[0] == '4') *sessionstate = EXIT;
+    else chooseMode(sessionstate);
+}
+
+void promptNextRound(int * sessionstate){
+    char input[MAX_COMMAND_LEN];
+    printf("Play again? y/n\n");
+    readinput(input, MAX_COMMAND_LEN);
+    if(input[0] == 'y' || input[0] == 'Y') *sessionstate = GAME;
+    else if (input[0] == 'n' || input[0] == 'N') *sessionstate = MENU;
+    else promptNextRound(sessionstate);
+}
+
+void setupPlayers(struct player * playerOne, struct player * playerTwo)
+{
+    playerOne -> wins = 0;
+    playerTwo -> wins = 0;
     changePlayerName(playerOne, "Player 1");
     if(playerTwo->automated){
         playerTwo->name = "Computer";
@@ -193,14 +221,14 @@ void changePlayerName(struct player * player, char* default_name)
     char input[MAX_NAME_LEN];
     printf("%s: Enter your name to customise or press enter.\n", default_name);
     readinput(input, MAX_NAME_LEN);
-    printf("Entered name: %s\n", input);
     char * string = malloc(sizeof(char)*MAX_NAME_LEN);
     for(int i=0; i<MAX_NAME_LEN; i++){
         string[i] = input[i];
         if(input[i] == '\0') break;
     }
     if(input[0] == '\0'){
-        player->name = default_name;
+        string = default_name;
+        player->name = string;
     }
     player->name = string;
 
@@ -208,7 +236,7 @@ void changePlayerName(struct player * player, char* default_name)
 
 void saveGame(char * filename, struct player * playerOne,
             struct player * playerTwo,  struct player * currPlayer,
-            int gb_size, int winscore, struct turn ** history, int turns_taken)
+            int gb_size, int winscore, struct turn ** history, int * turns_taken)
 {
     FILE *file = NULL;
     if((file = fopen(filename,"a")) == NULL)
@@ -225,26 +253,26 @@ void saveGame(char * filename, struct player * playerOne,
     fprintf(file, "%d,", gb_size);
     fprintf(file, "%d,", winscore);
 
-    struct turn ** turn_array = malloc(sizeof(struct turn*) * turns_taken);
-    printf("turns taken: %d\n", turns_taken);
-    for(int i=(turns_taken-1); i>=0; i--){
+    struct turn ** turn_array = malloc(sizeof(struct turn*) * (*turns_taken));
+    for(int i=((*turns_taken)-1); i>=0; i--){
         turn_array[i] = pop_turn(history);
     }
 
     // mark of first turn
     fprintf(file, "%d,", (turn_array[0]->owner)->mark);
-    for(int i=0; i<turns_taken; i++){
+    for(int i=0; i<(*turns_taken); i++){
         fprintf(file, "%d,", turn_array[i] -> row);
         fprintf(file, "%d", turn_array[i] -> column);
-        if(i==turns_taken-1) fprintf(file, "\n");
+        if(i==(*turns_taken)-1) fprintf(file, "\n");
         else fprintf(file, ",");
         free(turn_array[i]);
     }
-    free(turn_array);
 
+    free(turn_array);
+    *turns_taken = 0;
+    *history = NULL;
     fclose(file);
 }
-
 
 void switchPlayer(struct player *** currPlayer ,
                 struct player ** playerOne, struct player ** playerTwo)
@@ -256,10 +284,6 @@ void switchPlayer(struct player *** currPlayer ,
     }
 }
 
-
-
-
-
 void playTurn(struct player ** currPlayer, struct turn ** history,
                     int* turns_taken, struct turn ** undoneHistory,
                     int** board, int size)
@@ -269,9 +293,7 @@ void playTurn(struct player ** currPlayer, struct turn ** history,
     bool automated = (*currPlayer) -> automated;
 
     if(automated){
-        printf("Computer making a move.\n");
-        printf("Best row: %d", (*currPlayer) -> best_row);
-        printf("Best column: %d", (*currPlayer) -> best_column);
+        printf("Computer (%c) made a move.\n", getSign((*currPlayer)->mark));
         row = (*currPlayer) -> best_row;
         column = (*currPlayer) -> best_column;
         // LOGIC FOR PICKING ROW AND COLUMN AS COMPUTER
@@ -496,7 +518,6 @@ void checkGameState(int** board, int size, int winscore, int * gamestate,
         ai_set_best_move(weightboard, size, player);
     }
 
-    traverse_board(weightboard, size);
     free_board(&weightboard, size);
 
     return;
@@ -760,16 +781,13 @@ void ai_set_best_move(int ** weightboard, int size, struct player ** ai_player)
                 best_rows[num_of_bests] =  row;
                 best_columns[num_of_bests] =  column;
                 best_value = weightboard[row][column];
-                printf("%d", best_value);
 
             } else if(weightboard[row][column] > best_value)
             {
-                printf("\nbest_value: ");
                 num_of_bests = 0;
                 best_rows[num_of_bests] = row;
                 best_columns[num_of_bests] =  column;
                 best_value = weightboard[row][column];
-                printf("%d", best_value);
             }
         }
     }
@@ -779,7 +797,6 @@ void ai_set_best_move(int ** weightboard, int size, struct player ** ai_player)
 
     (*ai_player) -> best_row = best_rows[random];
     (*ai_player) -> best_column = best_columns[random];
-    printf("picking: %d at position(%d,%d)\n", weightboard[best_rows[random]][best_columns[random]], best_rows[random], best_columns[random]);
 
     free(best_rows);
     free(best_columns);
