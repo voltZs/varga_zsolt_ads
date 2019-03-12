@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <time.h>
 
 #define MARK_X 1
 #define MARK_O 2
@@ -21,8 +22,9 @@
 #define REDO 2
 
 #define MAX_STR_LEN 250
-#define MAX_NAME_LEN 20
+#define MAX_NAME_LEN 13
 #define MAX_COMMAND_LEN 4
+#define MAX_GAMES_LISTED 10
 
 typedef enum { false, true } bool;
 
@@ -69,6 +71,9 @@ void ai_set_best_move(int**, int, struct player **);
 void ai_add_weights(int**, int **, int, int *, int *, int);
 int ai_check_patterns(int*, int, int);
 void flush_scope(int*, int);
+void browseOldGames(int*, int);
+void replayGame(char **, int);
+void listOldGames(int , int, int , int *, char *** );
 void changePreferences(int*, int *, int *, struct player *);
 void changeGameboardSize(int *, int *);
 void changeWinScore(int *, int *);
@@ -96,22 +101,7 @@ char *** get_csv_array(char *, int, int*);
 /////////////////////////////////  MAIN  ///////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
 int main(){
-
     print_ascii("title_ascii.txt");
-
-
-    // int csv_size = get_csv_size("games_history.txt");
-    // printf("csv_size: %d\n", csv_size);
-    // int * linesizes = get_csv_linesizes("games_history.txt", csv_size);
-    // char *** csv_array = get_csv_array("games_history.txt", csv_size, linesizes);
-    //
-    // for(int i = 0; i<csv_size; i++){
-    //     printf("%d values: ", linesizes[i]);
-    //     for(int j=0; j<linesizes[i]; j++){
-    //         printf("%s, ", csv_array[i][j]);
-    //     }
-    //     printf("\n");
-    // }
 
     int gb_size = 3;
     int ** board;
@@ -175,7 +165,7 @@ int main(){
 
         if(sessionstate == OLD_GAMES)
         {
-
+            browseOldGames(&sessionstate, -1);
         }
 
         if(sessionstate == PREFERENCES)
@@ -189,6 +179,65 @@ int main(){
 
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
+
+void browseOldGames(int * sessionstate, int start)
+{
+    int csv_size = get_csv_size("games_history.txt");
+    int * linesizes = get_csv_linesizes("games_history.txt", csv_size);
+    char *** csv_array = get_csv_array("games_history.txt", csv_size, linesizes);
+
+    char input[MAX_COMMAND_LEN];
+    printf("\n-PREVIOUS GAMES-\n\n");
+    printf("\tID\tPlayer 1\tPlayer 2\tWinner\tBoard\tRow\tDate\n");
+    printf("\t----------------------------------------------------------------------------------------\n");
+
+    int start_id;
+    if(start == -1)
+        start_id = csv_size-1;
+    else
+        start_id = start;
+    int final_id = start_id - MAX_GAMES_LISTED;
+    listOldGames(start_id, final_id, csv_size, linesizes, csv_array);
+    printf("\nEnter game ID to replay game. Move up and down the list by entering W/S.\nEnter Q to exit.\n\n");
+
+    readinput(input, MAX_COMMAND_LEN);
+    int id_to_replay = atoi(input);
+    if(input[0] == 's' || input[0] == 'S'){
+        if(final_id >= 0) browseOldGames(sessionstate, final_id);
+        else browseOldGames(sessionstate, start_id);
+    }
+    else if (input[0] == 'w' || input[0] == 'W'){
+        if((start_id+MAX_GAMES_LISTED)<=(csv_size-1)) browseOldGames(sessionstate, start_id+MAX_GAMES_LISTED);
+        else browseOldGames(sessionstate, csv_size -1);
+    }
+    else if (id_to_replay<csv_size && id_to_replay>=0) replayGame(csv_array[id_to_replay], linesizes[id_to_replay]);
+    else if (input[0] == 'q' || input[0] == 'Q' )*sessionstate = MENU;
+    else browseOldGames(sessionstate, start_id);
+}
+
+void replayGame(char ** line, int num_of_items)
+{
+
+}
+
+void listOldGames(int start_id, int final_id , int csv_size, int * linesizes, char *** csv_array)
+{
+    for(int i = start_id; i>=0; i--){
+        if(i==final_id) break;
+        char ** line = csv_array[i];
+        int num_of_items = linesizes[i];
+        printf("\t%d", i);
+        printf("\t%s (%c)", line[0], getSign(atoi(line[1])));
+        printf("\t%s (%c)", line[2], getSign(atoi(line[3])));
+        printf("\t%c", getSign(atoi(line[4])));
+        printf("\t%sx%s", line[6], line[6]);
+        printf("\t%s", line[7]);
+        printf("\t%s", line[5]);
+        printf("\n");
+    }
+
+}
+
 
 void changePreferences(int * sessionstate, int * gb_size, int * winscore, struct player * playerTwo){
     char input[MAX_COMMAND_LEN];
@@ -324,11 +373,23 @@ void saveGame(char * filename, struct player * playerOne,
         return;
     }
 
+    time_t now;
+    time(&now);
+    char * timestr = ctime(&now);
+    int ind;
+    for(ind=0; timestr[ind]!='\n'; ind++);
+    timestr[ind] = '\0';
+
+    //player1
     fprintf(file, "%s,", playerOne->name);
     fprintf(file, "%d,", playerOne->mark);
+    //player2
     fprintf(file, "%s,", playerTwo->name);
     fprintf(file, "%d,", playerTwo->mark);
+    // winner
     fprintf(file, "%d,", currPlayer->mark);
+
+    fprintf(file, "%s,", timestr);
     fprintf(file, "%d,", gb_size);
     fprintf(file, "%d,", winscore);
 
@@ -1162,11 +1223,6 @@ char *** get_csv_array(char * filename, int csv_size, int * csv_linesizes)
                 num_of_chars++;
             }
         }
-
-        for(int i = 0; i< num_of_values; i++){
-            printf("%d, ", word_lengths[i]);
-        }
-        printf("\n");
 
         char ** csv_line = malloc(sizeof(char*) * num_of_values);
 
