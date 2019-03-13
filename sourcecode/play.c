@@ -72,7 +72,8 @@ void ai_add_weights(int**, int **, int, int *, int *, int);
 int ai_check_patterns(int*, int, int);
 void flush_scope(int*, int);
 void browseOldGames(int*, int);
-void replayGame(char **, int);
+void replayGame(char **, int, int);
+void rp_viewboardstate(int, int *, int *, int, int);
 void listOldGames(int , int, int , int *, char *** );
 void changePreferences(int*, int *, int *, struct player *);
 void changeGameboardSize(int *, int *);
@@ -210,13 +211,64 @@ void browseOldGames(int * sessionstate, int start)
         if((start_id+MAX_GAMES_LISTED)<=(csv_size-1)) browseOldGames(sessionstate, start_id+MAX_GAMES_LISTED);
         else browseOldGames(sessionstate, csv_size -1);
     }
-    else if (id_to_replay<csv_size && id_to_replay>=0) replayGame(csv_array[id_to_replay], linesizes[id_to_replay]);
     else if (input[0] == 'q' || input[0] == 'Q' )*sessionstate = MENU;
+    else if (id_to_replay<csv_size && id_to_replay>0) {
+        replayGame(csv_array[id_to_replay-1], linesizes[id_to_replay-1], 1);
+        browseOldGames(sessionstate, start_id);
+    }
     else browseOldGames(sessionstate, start_id);
 }
 
-void replayGame(char ** line, int num_of_items)
+void replayGame(char ** line, int num_of_items, int position)
 {
+    int rp_boardsize = atoi(line[6]);
+    int rp_mark = atoi(line[8]);
+    int rp_num_of_turns = (num_of_items-9)/2;
+    int * rp_rows = malloc(sizeof(int) * rp_num_of_turns);
+    int * rp_columns = malloc(sizeof(int) * rp_num_of_turns);
+    if(position<=1) position = 1;
+    if(position > rp_num_of_turns) position = rp_num_of_turns;
+
+    for(int i=0; i< rp_num_of_turns; i++){
+        rp_rows[i] = atoi(line[9+(i*2)]);
+        rp_columns[i] = atoi(line[9+(i*2)+1]);
+    }
+
+    char input[MAX_COMMAND_LEN];
+    printf("\tREPLAYING GAME: %s(%c) VS %s(%c)\n", line[0],getSign(atoi(line[1])),line[2],getSign(atoi(line[3])));
+    printf("\tWINNER:\t\t(%c)\n",getSign(atoi(line[4])));
+    printf("\tCURRENT MOVE:\t");
+    for(int i=0; i< position-1; i++) printf(" -");
+    if(position%2==0) printf(" %c", getSign(opposite_mark(rp_mark)));
+    else printf(" %c", getSign(rp_mark));
+    for(int i=0; i<rp_num_of_turns-position; i++) printf(" -");
+
+
+    rp_viewboardstate(rp_boardsize, rp_rows, rp_columns, position, rp_mark);
+
+    readinput(input, MAX_COMMAND_LEN);
+    if(input[0] == 'a' || input[0] == 'A') replayGame(line, num_of_items, position-1);
+    else if(input[0] == 'd' || input[0] == 'D') replayGame(line, num_of_items, position+1);
+    else if(input[0] == 'q' || input[0] == 'Q') return;
+    else replayGame(line, num_of_items, position);
+}
+
+void rp_viewboardstate(int boardsize, int * rows, int * columns, int iterations, int mark)
+{
+    int ** rp_board;
+    initBoard(&rp_board, boardsize);
+
+    for(int i=0; i<iterations; i++){
+        int row = rows[i];
+        int column = columns[i];
+        rp_board[row][column] = mark;
+
+        if(mark == MARK_X) mark = MARK_O;
+        else mark = MARK_X;
+    }
+
+    displayBoard(rp_board, boardsize);
+    free_board(&rp_board, boardsize);
 
 }
 
@@ -226,7 +278,7 @@ void listOldGames(int start_id, int final_id , int csv_size, int * linesizes, ch
         if(i==final_id) break;
         char ** line = csv_array[i];
         int num_of_items = linesizes[i];
-        printf("\t%d", i);
+        printf("\t%d", i+1);
         printf("\t%s (%c)", line[0], getSign(atoi(line[1])));
         printf("\t%s (%c)", line[2], getSign(atoi(line[3])));
         printf("\t%c", getSign(atoi(line[4])));
