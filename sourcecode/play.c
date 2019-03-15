@@ -24,7 +24,7 @@
 #define MAX_STR_LEN 250
 #define MAX_NAME_LEN 13
 #define MAX_COMMAND_LEN 4
-#define MAX_GAMES_LISTED 10
+#define MAX_GAMES_LISTED 7
 
 typedef enum { false, true } bool;
 
@@ -60,7 +60,7 @@ int checkGameCommands(char);
 void promptNextRound(int*);
 int playUndo(struct turn **, int*, struct turn **, int **);
 int playRedo(struct turn **, int*, struct turn **, int **);
-void saveGame(char *, struct player *,  struct player *,  struct player *, int, int, struct turn **, int*);
+void saveGame(char *, struct player *,  struct player *,  struct player *, int, int, int, struct turn **, int*);
 void checkGameState(int **, int, int, int *, struct player **);
 void checkTie(int **, int, int *);
 void checkHorizontal(int**, int **, int, int, int *, struct player **);
@@ -156,7 +156,7 @@ int main(){
             } else if(gamestate == GAME_TIE){
                 printf("It's a tie!\n");
             }
-            saveGame("games_history.txt", playerOne, playerTwo, *currPlayer, gb_size, winscore, &history, &turns_taken);
+            saveGame("games_history.txt", playerOne, playerTwo, *currPlayer, gamestate, gb_size, winscore, &history, &turns_taken);
             free_board(&board, gb_size);
             gamestate = GAME_ON;
             promptNextRound(&sessionstate);
@@ -196,7 +196,10 @@ void browseOldGames(int * sessionstate, int start)
     if(start == -1)
         start_id = csv_size-1;
     else
-        start_id = start;
+        if(start > MAX_GAMES_LISTED)
+            start_id = start;
+        else
+            start_id = MAX_GAMES_LISTED-1;
     int final_id = start_id - MAX_GAMES_LISTED;
     listOldGames(start_id, final_id, csv_size, linesizes, csv_array);
     printf("\nEnter game ID to replay game. Move up and down the list by entering W/S.\nEnter Q to exit.\n\n");
@@ -212,7 +215,7 @@ void browseOldGames(int * sessionstate, int start)
         else browseOldGames(sessionstate, csv_size -1);
     }
     else if (input[0] == 'q' || input[0] == 'Q' )*sessionstate = MENU;
-    else if (id_to_replay<csv_size && id_to_replay>0) {
+    else if (id_to_replay<=csv_size && id_to_replay>0) {
         replayGame(csv_array[id_to_replay-1], linesizes[id_to_replay-1], 1);
         browseOldGames(sessionstate, start_id);
     }
@@ -236,7 +239,11 @@ void replayGame(char ** line, int num_of_items, int position)
 
     char input[MAX_COMMAND_LEN];
     printf("\tREPLAYING GAME: %s(%c) VS %s(%c)\n", line[0],getSign(atoi(line[1])),line[2],getSign(atoi(line[3])));
-    printf("\tWINNER:\t\t(%c)\n",getSign(atoi(line[4])));
+    int winner = getSign(atoi(line[4]));
+    if(winner)
+        printf("\tWINNER:\t\t(%c)\n",getSign(winner));
+    else
+        printf("\tWINNER:\t\tTIE\n");
     printf("\tCURRENT MOVE:\t");
     for(int i=0; i< position-1; i++) printf(" -");
     if(position%2==0) printf(" %c", getSign(opposite_mark(rp_mark)));
@@ -245,6 +252,7 @@ void replayGame(char ** line, int num_of_items, int position)
 
 
     rp_viewboardstate(rp_boardsize, rp_rows, rp_columns, position, rp_mark);
+    printf("\nMove left and right between turns by entering A/D.\nEnter Q to exit.\n\n");
 
     readinput(input, MAX_COMMAND_LEN);
     if(input[0] == 'a' || input[0] == 'A') replayGame(line, num_of_items, position-1);
@@ -281,7 +289,11 @@ void listOldGames(int start_id, int final_id , int csv_size, int * linesizes, ch
         printf("\t%d", i+1);
         printf("\t%s (%c)", line[0], getSign(atoi(line[1])));
         printf("\t%s (%c)", line[2], getSign(atoi(line[3])));
-        printf("\t%c", getSign(atoi(line[4])));
+        int winner = atoi(line[4]);
+        if(winner)
+            printf("\t%c", getSign(winner));
+        else
+            printf("\tTIE");
         printf("\t%sx%s", line[6], line[6]);
         printf("\t%s", line[7]);
         printf("\t%s", line[5]);
@@ -415,7 +427,7 @@ void changePlayerName(struct player * player, char* default_name)
 }
 
 void saveGame(char * filename, struct player * playerOne,
-            struct player * playerTwo,  struct player * currPlayer,
+            struct player * playerTwo,  struct player * currPlayer, int gamestate,
             int gb_size, int winscore, struct turn ** history, int * turns_taken)
 {
     FILE *file = NULL;
@@ -439,7 +451,10 @@ void saveGame(char * filename, struct player * playerOne,
     fprintf(file, "%s,", playerTwo->name);
     fprintf(file, "%d,", playerTwo->mark);
     // winner
-    fprintf(file, "%d,", currPlayer->mark);
+    if(gamestate == GAME_WON)
+        fprintf(file, "%d,", currPlayer->mark);
+    else //in case it's a tie
+        fprintf(file, "%d,", 0);
 
     fprintf(file, "%s,", timestr);
     fprintf(file, "%d,", gb_size);
