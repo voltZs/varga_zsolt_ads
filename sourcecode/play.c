@@ -10,6 +10,7 @@
 
 #define GAME_WON 1
 #define GAME_TIE 2
+#define GAME_EXIT 3
 #define GAME_ON 0
 
 #define GAME 1
@@ -20,6 +21,7 @@
 
 #define UNDO 1
 #define REDO 2
+#define ENDGAME 3
 
 #define MAX_STR_LEN 250
 #define MAX_NAME_LEN 13
@@ -55,7 +57,7 @@ void push_turn(struct turn **, struct turn *);
 void traverse_turns(struct turn *);
 void flush_turns(struct turn **);
 struct turn * pop_turn(struct turn **);
-void playTurn(struct player**, struct turn**, int*, struct turn**, int**, int);
+void playTurn(struct player**, struct turn**, int*, struct turn**, int**, int, int*, int*);
 int checkGameCommands(char);
 void promptNextRound(int*);
 int playUndo(struct turn **, int*, struct turn **, int **);
@@ -89,7 +91,6 @@ void printRow(char, int, int*);
 int readinput(char s[], int);
 int rowToInt(char);
 char getSign(int);
-void printHelpPage();
 void print_ascii(char *);
 void wtfile_end(char *, char *);
 int get_csv_size(char *);
@@ -148,7 +149,7 @@ int main(){
                     switchPlayer(&currPlayer, &playerOne, &playerTwo);
                     break;
                 }
-                playTurn(currPlayer, &history, &turns_taken, &undoneHistory, board, gb_size);
+                playTurn(currPlayer, &history, &turns_taken, &undoneHistory, board, gb_size, &sessionstate, &gamestate);
             }
             if(gamestate == GAME_WON){
                 printf("Player %d (%c) won!\n", (*currPlayer) -> mark, getSign((*currPlayer) -> mark));
@@ -156,11 +157,18 @@ int main(){
             } else if(gamestate == GAME_TIE){
                 printf("It's a tie!\n");
             }
-            saveGame("games_history.txt", playerOne, playerTwo, *currPlayer, gamestate, gb_size, winscore, &history, &turns_taken);
+            if(gamestate != GAME_EXIT)
+                saveGame("games_history.txt", playerOne, playerTwo, *currPlayer, gamestate, gb_size, winscore, &history, &turns_taken);
             free_board(&board, gb_size);
             gamestate = GAME_ON;
-            promptNextRound(&sessionstate);
+            turns_taken = 0;
+            flush_turns(&history);
+            flush_turns(&undoneHistory);
+            if(sessionstate != MENU)
+                promptNextRound(&sessionstate);
         }
+        playerOne -> name = NULL;
+        playerTwo -> name = NULL;
         playerOne -> wins = 0;
         playerTwo -> wins = 0;
 
@@ -476,8 +484,6 @@ void saveGame(char * filename, struct player * playerOne,
     }
 
     free(turn_array);
-    *turns_taken = 0;
-    *history = NULL;
     fclose(file);
 }
 
@@ -493,7 +499,7 @@ void switchPlayer(struct player *** currPlayer ,
 
 void playTurn(struct player ** currPlayer, struct turn ** history,
                     int* turns_taken, struct turn ** undoneHistory,
-                    int** board, int size)
+                    int** board, int size, int * sessionstate, int * gamestate)
 {
     int column = 0;
     int row = 0;
@@ -521,9 +527,13 @@ void playTurn(struct player ** currPlayer, struct turn ** history,
                     if(playRedo(history, turns_taken, undoneHistory, board)){
                         return;
                     }
+                } else if(gamecommand == ENDGAME){
+                    *sessionstate = MENU;
+                    *gamestate = GAME_EXIT;
+                    return;
                 }
             }
-            playTurn(currPlayer, history, turns_taken, undoneHistory, board, size);
+            playTurn(currPlayer, history, turns_taken, undoneHistory, board, size, sessionstate, gamestate);
             return;
         }
         rowChar = input[0];
@@ -534,7 +544,7 @@ void playTurn(struct player ** currPlayer, struct turn ** history,
     if(row < 0 || row > size || column < 0 || column > size)
     {
         printf("Not a valid input. Try again.\n");
-        playTurn(currPlayer, history, turns_taken, undoneHistory, board, size);
+        playTurn(currPlayer, history, turns_taken, undoneHistory, board, size, sessionstate, gamestate);
         return;
     }
 
@@ -552,7 +562,7 @@ void playTurn(struct player ** currPlayer, struct turn ** history,
         board[row][column] = (*currPlayer) -> mark;
     }  else {
         printf("This tile is already taken. Make a different move.\n");
-        playTurn(currPlayer, history, turns_taken, undoneHistory, board, size);
+        playTurn(currPlayer, history, turns_taken, undoneHistory, board, size, sessionstate, gamestate);
         return;
     }
     return;
@@ -560,13 +570,12 @@ void playTurn(struct player ** currPlayer, struct turn ** history,
 
 int checkGameCommands(char letter)
 {
-    if(letter == 'h' || letter == 'H')
-    {
-        printHelpPage();
-    } else if(letter == 'r' || letter == 'R'  ){
+    if(letter == 'r' || letter == 'R'  ){
         return REDO;
     } else if(letter == 'u' || letter == 'U'  ){
         return UNDO;
+    } else if(letter == 'q' || letter == 'Q'  ){
+        return ENDGAME;
     }
     return 0;
 }
@@ -1172,11 +1181,6 @@ int readinput(char s[], int maxlen)
     }
     s[i] = '\0';
     return i;
-}
-
-void printHelpPage()
-{
-    printf("THIS IS THE HELP PAGE\n");
 }
 
 void print_ascii(char * filename)
