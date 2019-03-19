@@ -46,51 +46,51 @@ struct turn{
     struct turn * next;
 };
 
-void chooseMode(int *);
-void setupPlayers(struct player *, struct player *);
-void changePlayerName(struct player *, char*);
-void switchPlayer(struct player *** ,struct player **, struct player **);
-void initBoard(int***, int);
+void choose_mode(int *);
+void setup_players(struct player *, struct player *);
+void change_player_name(struct player *, char*);
+void switch_player(struct player *** ,struct player **, struct player **);
+void init_board(int***, int);
 void traverse_board(int**, int);
 void free_board(int ***, int);
 void push_turn(struct turn **, struct turn *);
 void traverse_turns(struct turn *);
 void flush_turns(struct turn **);
 struct turn * pop_turn(struct turn **);
-void playTurn(struct player**, struct turn**, int*, struct turn**, int**, int, int*, int*);
-int checkGameCommands(char);
-void promptNextRound(int*);
-int playUndo(struct turn **, int*, struct turn **, int **);
-int playRedo(struct turn **, int*, struct turn **, int **);
-void saveGame(char *, struct player *,  struct player *,  struct player *, int, int, int, struct turn **, int*);
-void checkGameState(int **, int, int, int *, struct player **);
-void checkTie(int **, int, int *);
-void checkHorizontal(int**, int **, int, int, int *, struct player **);
-void checkVertical(int**, int **, int, int, int *, struct player **);
-void checkDiagonal(int**, int **, int, int, int *, struct player **);
+void play_turn(struct player**, struct turn**, int*, struct turn**, int**, int, int*, int*);
+int check_game_commands(char);
+void prompt_next_round(int*);
+int play_undo(struct turn **, int*, struct turn **, int **);
+int play_redo(struct turn **, int*, struct turn **, int **);
+void save_game(char *, struct player *,  struct player *,  struct player *, int, int, int, struct turn **, int*);
+void check_game_state(int **, int, int, int *, struct player **);
+void check_tie(int **, int, int *);
+void check_horizontal(int**, int **, int, int, int *, struct player **);
+void check_vertical(int**, int **, int, int, int *, struct player **);
+void check_diagonal(int**, int **, int, int, int *, struct player **);
 void push_scope(int*, int, int);
 void ai_set_best_move(int**, int, struct player **);
 void ai_add_weights(int**, int **, int, int *, int *, int);
 int ai_check_patterns(int*, int, int);
 void flush_scope(int*, int);
-void browseOldGames(int*, int);
-void replayGame(char **, int, int);
+void browse_old_games(int*, int);
+void replay_game(char **, int, int);
 void rp_viewboardstate(int, int *, int *, int, int);
-void listOldGames(int , int, int , int *, char *** );
-void changePreferences(int*, int *, int *, struct player *);
-void changeGameboardSize(int *, int *);
-void changeWinScore(int *, int *);
-void changeGameMode(struct player *);
-char * getAutomated(struct player *);
+void list_old_games(int , int, int , int *, char *** );
+void change_preferences(int*, int *, int *, struct player *);
+void change_gameboard_size(int *, int *);
+void change_win_score(int *, int *);
+void change_game_mode(struct player *);
+char * get_automated(struct player *);
 int opposite_mark(int);
-void displayBoard(int **, int);
-void printDivider(int);
-void printTop(int);
-void printLine(int, int*, int);
-void printRow(char, int, int*);
+void display_board(int **, int);
+void print_divider(int);
+void print_top(int);
+void print_line(int, int*, int);
+void print_row(char, int, int*);
 int readinput(char s[], int);
-int rowToInt(char);
-char getSign(int);
+int row_to_int(char);
+char get_sign(int);
 void print_ascii(char *);
 void wtfile_end(char *, char *);
 int get_csv_size(char *);
@@ -114,72 +114,72 @@ int main(){
     struct turn * history;
     history = NULL;
     int turns_taken = 0;
-    struct turn * undoneHistory;
-    undoneHistory = NULL;
+    struct turn * undone_history;
+    undone_history = NULL;
 
-    struct player * playerOne;
-    struct player * playerTwo;
-    playerOne = malloc(sizeof(struct player));
-    playerOne -> name = NULL;
-    playerOne -> mark = MARK_X;
-    playerOne -> automated = false;
-    playerTwo = malloc(sizeof(struct player));
-    playerTwo -> name = NULL;
-    playerTwo -> mark = MARK_O;
-    playerTwo -> automated = true;
+    struct player * player_one;
+    struct player * player_two;
+    player_one = malloc(sizeof(struct player));
+    player_one -> name = NULL;
+    player_one -> mark = MARK_X;
+    player_one -> automated = false;
+    player_two = malloc(sizeof(struct player));
+    player_two -> name = NULL;
+    player_two -> mark = MARK_O;
+    player_two -> automated = true;
 
-    struct player ** currPlayer = &playerTwo;
+    struct player ** curr_player = &player_two;
 
     //setup game - ask for name, preferred mark, 1 vs 1 or 1 vs computer
     //
     while(sessionstate == MENU)
     {
-        chooseMode(&sessionstate);
+        choose_mode(&sessionstate);
         while(sessionstate == GAME)
         {
-            if(playerOne -> name == NULL) setupPlayers(playerOne, playerTwo);
-            initBoard(&board, gb_size);
+            if(player_one -> name == NULL) setup_players(player_one, player_two);
+            init_board(&board, gb_size);
             while(gamestate == GAME_ON){
-                printf("WINS:\t%s %d --- %d %s\n\n", playerOne -> name, playerOne -> wins, playerTwo-> wins, playerTwo -> name);
-                displayBoard(board, gb_size);
-                switchPlayer(&currPlayer, &playerOne, &playerTwo);
-                checkGameState(board, gb_size, winscore, &gamestate, currPlayer);
+                printf("WINS:\t%s %d --- %d %s\n\n", player_one -> name, player_one -> wins, player_two-> wins, player_two -> name);
+                display_board(board, gb_size);
+                switch_player(&curr_player, &player_one, &player_two);
+                check_game_state(board, gb_size, winscore, &gamestate, curr_player);
                 if(gamestate)
                 {
-                    switchPlayer(&currPlayer, &playerOne, &playerTwo);
+                    switch_player(&curr_player, &player_one, &player_two);
                     break;
                 }
-                playTurn(currPlayer, &history, &turns_taken, &undoneHistory, board, gb_size, &sessionstate, &gamestate);
+                play_turn(curr_player, &history, &turns_taken, &undone_history, board, gb_size, &sessionstate, &gamestate);
             }
             if(gamestate == GAME_WON){
-                printf("Player %d (%c) won!\n", (*currPlayer) -> mark, getSign((*currPlayer) -> mark));
-                (*currPlayer) -> wins++;
+                printf("%s (%c) won!\n", (*curr_player) -> name, get_sign((*curr_player) -> mark));
+                (*curr_player) -> wins++;
             } else if(gamestate == GAME_TIE){
                 printf("It's a tie!\n");
             }
             if(gamestate != GAME_EXIT)
-                saveGame("games_history.txt", playerOne, playerTwo, *currPlayer, gamestate, gb_size, winscore, &history, &turns_taken);
+                save_game("games_history.txt", player_one, player_two, *curr_player, gamestate, gb_size, winscore, &history, &turns_taken);
             free_board(&board, gb_size);
             gamestate = GAME_ON;
             turns_taken = 0;
             flush_turns(&history);
-            flush_turns(&undoneHistory);
+            flush_turns(&undone_history);
             if(sessionstate != MENU)
-                promptNextRound(&sessionstate);
+                prompt_next_round(&sessionstate);
         }
-        playerOne -> name = NULL;
-        playerTwo -> name = NULL;
-        playerOne -> wins = 0;
-        playerTwo -> wins = 0;
+        player_one -> name = NULL;
+        player_two -> name = NULL;
+        player_one -> wins = 0;
+        player_two -> wins = 0;
 
         if(sessionstate == OLD_GAMES)
         {
-            browseOldGames(&sessionstate, -1);
+            browse_old_games(&sessionstate, -1);
         }
 
         if(sessionstate == PREFERENCES)
         {
-            changePreferences(&sessionstate, &gb_size, &winscore, playerTwo);
+            change_preferences(&sessionstate, &gb_size, &winscore, player_two);
         }
     }
 
@@ -189,7 +189,7 @@ int main(){
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
 
-void browseOldGames(int * sessionstate, int start)
+void browse_old_games(int * sessionstate, int start)
 {
     int csv_size = get_csv_size("games_history.txt");
     int * linesizes = get_csv_linesizes("games_history.txt", csv_size);
@@ -209,28 +209,28 @@ void browseOldGames(int * sessionstate, int start)
         else
             start_id = MAX_GAMES_LISTED-1;
     int final_id = start_id - MAX_GAMES_LISTED;
-    listOldGames(start_id, final_id, csv_size, linesizes, csv_array);
+    list_old_games(start_id, final_id, csv_size, linesizes, csv_array);
     printf("\nEnter game ID to replay game. Move up and down the list by entering W/S.\nEnter Q to exit.\n\n");
 
     readinput(input, MAX_COMMAND_LEN);
     int id_to_replay = atoi(input);
     if(input[0] == 's' || input[0] == 'S'){
-        if(final_id >= 0) browseOldGames(sessionstate, final_id);
-        else browseOldGames(sessionstate, start_id);
+        if(final_id >= 0) browse_old_games(sessionstate, final_id);
+        else browse_old_games(sessionstate, start_id);
     }
     else if (input[0] == 'w' || input[0] == 'W'){
-        if((start_id+MAX_GAMES_LISTED)<=(csv_size-1)) browseOldGames(sessionstate, start_id+MAX_GAMES_LISTED);
-        else browseOldGames(sessionstate, csv_size -1);
+        if((start_id+MAX_GAMES_LISTED)<=(csv_size-1)) browse_old_games(sessionstate, start_id+MAX_GAMES_LISTED);
+        else browse_old_games(sessionstate, csv_size -1);
     }
     else if (input[0] == 'q' || input[0] == 'Q' )*sessionstate = MENU;
     else if (id_to_replay<=csv_size && id_to_replay>0) {
-        replayGame(csv_array[id_to_replay-1], linesizes[id_to_replay-1], 1);
-        browseOldGames(sessionstate, start_id);
+        replay_game(csv_array[id_to_replay-1], linesizes[id_to_replay-1], 1);
+        browse_old_games(sessionstate, start_id);
     }
-    else browseOldGames(sessionstate, start_id);
+    else browse_old_games(sessionstate, start_id);
 }
 
-void replayGame(char ** line, int num_of_items, int position)
+void replay_game(char ** line, int num_of_items, int position)
 {
     int rp_boardsize = atoi(line[6]);
     int rp_mark = atoi(line[8]);
@@ -246,16 +246,16 @@ void replayGame(char ** line, int num_of_items, int position)
     }
 
     char input[MAX_COMMAND_LEN];
-    printf("\tREPLAYING GAME: %s(%c) VS %s(%c)\n", line[0],getSign(atoi(line[1])),line[2],getSign(atoi(line[3])));
-    int winner = getSign(atoi(line[4]));
+    printf("\tREPLAYING GAME: %s(%c) VS %s(%c)\n", line[0],get_sign(atoi(line[1])),line[2],get_sign(atoi(line[3])));
+    int winner = get_sign(atoi(line[4]));
     if(winner)
-        printf("\tWINNER:\t\t(%c)\n",getSign(winner));
+        printf("\tWINNER:\t\t(%c)\n",get_sign(winner));
     else
         printf("\tWINNER:\t\tTIE\n");
     printf("\tCURRENT MOVE:\t");
     for(int i=0; i< position-1; i++) printf(" -");
-    if(position%2==0) printf(" %c", getSign(opposite_mark(rp_mark)));
-    else printf(" %c", getSign(rp_mark));
+    if(position%2==0) printf(" %c", get_sign(opposite_mark(rp_mark)));
+    else printf(" %c", get_sign(rp_mark));
     for(int i=0; i<rp_num_of_turns-position; i++) printf(" -");
 
 
@@ -263,16 +263,18 @@ void replayGame(char ** line, int num_of_items, int position)
     printf("\nMove left and right between turns by entering A/D.\nEnter Q to exit.\n\n");
 
     readinput(input, MAX_COMMAND_LEN);
-    if(input[0] == 'a' || input[0] == 'A') replayGame(line, num_of_items, position-1);
-    else if(input[0] == 'd' || input[0] == 'D') replayGame(line, num_of_items, position+1);
+    free(rp_rows);
+    free(rp_columns);
+    if(input[0] == 'a' || input[0] == 'A') replay_game(line, num_of_items, position-1);
+    else if(input[0] == 'd' || input[0] == 'D') replay_game(line, num_of_items, position+1);
     else if(input[0] == 'q' || input[0] == 'Q') return;
-    else replayGame(line, num_of_items, position);
+    else replay_game(line, num_of_items, position);
 }
 
 void rp_viewboardstate(int boardsize, int * rows, int * columns, int iterations, int mark)
 {
     int ** rp_board;
-    initBoard(&rp_board, boardsize);
+    init_board(&rp_board, boardsize);
 
     for(int i=0; i<iterations; i++){
         int row = rows[i];
@@ -283,23 +285,23 @@ void rp_viewboardstate(int boardsize, int * rows, int * columns, int iterations,
         else mark = MARK_X;
     }
 
-    displayBoard(rp_board, boardsize);
+    display_board(rp_board, boardsize);
     free_board(&rp_board, boardsize);
 
 }
 
-void listOldGames(int start_id, int final_id , int csv_size, int * linesizes, char *** csv_array)
+void list_old_games(int start_id, int final_id , int csv_size, int * linesizes, char *** csv_array)
 {
     for(int i = start_id; i>=0; i--){
         if(i==final_id) break;
         char ** line = csv_array[i];
         int num_of_items = linesizes[i];
         printf("\t%d", i+1);
-        printf("\t%s (%c)", line[0], getSign(atoi(line[1])));
-        printf("\t%s (%c)", line[2], getSign(atoi(line[3])));
+        printf("\t%s (%c)", line[0], get_sign(atoi(line[1])));
+        printf("\t%s (%c)", line[2], get_sign(atoi(line[3])));
         int winner = atoi(line[4]);
         if(winner)
-            printf("\t%c", getSign(winner));
+            printf("\t%c", get_sign(winner));
         else
             printf("\tTIE");
         printf("\t%sx%s", line[6], line[6]);
@@ -311,25 +313,25 @@ void listOldGames(int start_id, int final_id , int csv_size, int * linesizes, ch
 }
 
 
-void changePreferences(int * sessionstate, int * gb_size, int * winscore, struct player * playerTwo){
+void change_preferences(int * sessionstate, int * gb_size, int * winscore, struct player * player_two){
     char input[MAX_COMMAND_LEN];
     printf("\n-PREFERENCES-\n");
     printf("\tENTER OPTION TO MODIFY:\n");
     printf("\t1 | GAMEBOARD SIZE\t(%d)\n", *gb_size);
     printf("\t2 | WIN ROW SIZE\t(%d)\n", *winscore);
-    printf("\t3 | OPPONENT\t\t(%s)\n", getAutomated(playerTwo));
+    printf("\t3 | OPPONENT\t\t(%s)\n", get_automated(player_two));
     printf("\t4 | BACK TO MAIN MENU\n\n");
     readinput(input, MAX_COMMAND_LEN);
-    if(input[0] == '1') changeGameboardSize(gb_size, winscore);
-    else if (input[0] == '2') changeWinScore(gb_size, winscore);
-    else if (input[0] == '3') changeGameMode(playerTwo);
+    if(input[0] == '1') change_gameboard_size(gb_size, winscore);
+    else if (input[0] == '2') change_win_score(gb_size, winscore);
+    else if (input[0] == '3') change_game_mode(player_two);
     else if (input[0] == '4') *sessionstate = MENU;
     if(input[0] != '4'){
-        changePreferences(sessionstate, gb_size, winscore, playerTwo);
+        change_preferences(sessionstate, gb_size, winscore, player_two);
     }
 }
 
-void changeGameboardSize(int * gb_size, int * winscore)
+void change_gameboard_size(int * gb_size, int * winscore)
 {
     char input[MAX_COMMAND_LEN];
     printf("Enter new gameoard size (3 - 10):\n");
@@ -340,10 +342,10 @@ void changeGameboardSize(int * gb_size, int * winscore)
         if(new_size<= *winscore) *winscore = new_size;
     } else {
         printf("This value is not valid. ");
-        changeGameboardSize(gb_size, winscore);
+        change_gameboard_size(gb_size, winscore);
     }
 }
-void changeWinScore(int * gb_size, int * winscore)
+void change_win_score(int * gb_size, int * winscore)
 {
     char input[MAX_COMMAND_LEN];
     printf("Enter new win score size (3 - 10):\n");
@@ -354,25 +356,25 @@ void changeWinScore(int * gb_size, int * winscore)
         if(new_size >= *gb_size) *gb_size = new_size;
     } else {
         printf("This value is not valid. ");
-        changeWinScore(gb_size, winscore);
+        change_win_score(gb_size, winscore);
     }
 }
-void changeGameMode(struct player * playerTwo)
+void change_game_mode(struct player * player_two)
 {
     char input[MAX_COMMAND_LEN];
     printf("Would you like to play agains person or computer? p/c\n");
     readinput(input, MAX_COMMAND_LEN);
     if(input[0] == 'p' || input[0] == 'P')
-        playerTwo->automated = false;
+        player_two->automated = false;
     else if (input[0] == 'c' || input[0] == 'C')
-        playerTwo->automated = true;
+        player_two->automated = true;
     else {
         printf("Not a valid input.\n");
-        changeGameMode(playerTwo);
+        change_game_mode(player_two);
     }
 }
 
-char * getAutomated(struct player * player)
+char * get_automated(struct player * player)
 {
     if(player -> automated)
         return "COMPUTER";
@@ -380,7 +382,7 @@ char * getAutomated(struct player * player)
         return "HUMAN";
 }
 
-void chooseMode(int * sessionstate)
+void choose_mode(int * sessionstate)
 {
     char input[MAX_COMMAND_LEN];
     printf("\n-MAIN MENU-\n");
@@ -390,33 +392,33 @@ void chooseMode(int * sessionstate)
     else if (input[0] == '2') *sessionstate = OLD_GAMES;
     else if (input[0] == '3') *sessionstate = PREFERENCES;
     else if (input[0] == '4') *sessionstate = EXIT;
-    else chooseMode(sessionstate);
+    else choose_mode(sessionstate);
 }
 
-void promptNextRound(int * sessionstate){
+void prompt_next_round(int * sessionstate){
     char input[MAX_COMMAND_LEN];
     printf("Play again? y/n\n");
     readinput(input, MAX_COMMAND_LEN);
     if(input[0] == 'y' || input[0] == 'Y') *sessionstate = GAME;
     else if (input[0] == 'n' || input[0] == 'N') *sessionstate = MENU;
-    else promptNextRound(sessionstate);
+    else prompt_next_round(sessionstate);
 }
 
-void setupPlayers(struct player * playerOne, struct player * playerTwo)
+void setup_players(struct player * player_one, struct player * player_two)
 {
-    playerOne -> wins = 0;
-    playerTwo -> wins = 0;
-    changePlayerName(playerOne, "Player 1");
-    if(playerTwo->automated){
-        playerTwo->name = "Computer";
+    player_one -> wins = 0;
+    player_two -> wins = 0;
+    change_player_name(player_one, "Player 1");
+    if(player_two->automated){
+        player_two->name = "Computer";
     } else {
-        changePlayerName(playerTwo, "Player 2");
+        change_player_name(player_two, "Player 2");
     }
     printf("\n");
 
 }
 
-void changePlayerName(struct player * player, char* default_name)
+void change_player_name(struct player * player, char* default_name)
 {
     char input[MAX_NAME_LEN];
     printf("%s: Enter your name to customise or press enter.\n", default_name);
@@ -434,8 +436,8 @@ void changePlayerName(struct player * player, char* default_name)
 
 }
 
-void saveGame(char * filename, struct player * playerOne,
-            struct player * playerTwo,  struct player * currPlayer, int gamestate,
+void save_game(char * filename, struct player * player_one,
+            struct player * player_two,  struct player * curr_player, int gamestate,
             int gb_size, int winscore, struct turn ** history, int * turns_taken)
 {
     FILE *file = NULL;
@@ -453,14 +455,14 @@ void saveGame(char * filename, struct player * playerOne,
     timestr[ind] = '\0';
 
     //player1
-    fprintf(file, "%s,", playerOne->name);
-    fprintf(file, "%d,", playerOne->mark);
+    fprintf(file, "%s,", player_one->name);
+    fprintf(file, "%d,", player_one->mark);
     //player2
-    fprintf(file, "%s,", playerTwo->name);
-    fprintf(file, "%d,", playerTwo->mark);
+    fprintf(file, "%s,", player_two->name);
+    fprintf(file, "%d,", player_two->mark);
     // winner
     if(gamestate == GAME_WON)
-        fprintf(file, "%d,", currPlayer->mark);
+        fprintf(file, "%d,", curr_player->mark);
     else //in case it's a tie
         fprintf(file, "%d,", 0);
 
@@ -487,44 +489,44 @@ void saveGame(char * filename, struct player * playerOne,
     fclose(file);
 }
 
-void switchPlayer(struct player *** currPlayer ,
-                struct player ** playerOne, struct player ** playerTwo)
+void switch_player(struct player *** curr_player ,
+                struct player ** player_one, struct player ** player_two)
 {
-    if(**currPlayer == *playerOne){
-        *currPlayer = playerTwo;
+    if(**curr_player == *player_one){
+        *curr_player = player_two;
     }else{
-        *currPlayer = playerOne;
+        *curr_player = player_one;
     }
 }
 
-void playTurn(struct player ** currPlayer, struct turn ** history,
-                    int* turns_taken, struct turn ** undoneHistory,
+void play_turn(struct player ** curr_player, struct turn ** history,
+                    int* turns_taken, struct turn ** undone_history,
                     int** board, int size, int * sessionstate, int * gamestate)
 {
     int column = 0;
     int row = 0;
-    bool automated = (*currPlayer) -> automated;
+    bool automated = (*curr_player) -> automated;
 
     if(automated){
-        printf("Computer (%c) made a move.\n", getSign((*currPlayer)->mark));
-        row = (*currPlayer) -> best_row;
-        column = (*currPlayer) -> best_column;
+        printf("Computer (%c) made a move.\n", get_sign((*curr_player)->mark));
+        row = (*curr_player) -> best_row;
+        column = (*curr_player) -> best_column;
         // LOGIC FOR PICKING ROW AND COLUMN AS COMPUTER
     } else {
         char input[3];
-        char rowChar = 0;
-        printf("%s (%c): Enter row followed by column\n", (*currPlayer) -> name, getSign((*currPlayer) -> mark));
+        char row_char = 0;
+        printf("%s (%c): Enter row followed by column\n", (*curr_player) -> name, get_sign((*curr_player) -> mark));
         readinput(input, 3);
         if(input[0] == ':')
         {
-            int gamecommand = checkGameCommands(input[1]);
+            int gamecommand = check_game_commands(input[1]);
             if(gamecommand){
                 if(gamecommand == UNDO){
-                    if(playUndo(history, turns_taken, undoneHistory, board)){
+                    if(play_undo(history, turns_taken, undone_history, board)){
                         return;
                     }
                 } else if(gamecommand == REDO){
-                    if(playRedo(history, turns_taken, undoneHistory, board)){
+                    if(play_redo(history, turns_taken, undone_history, board)){
                         return;
                     }
                 } else if(gamecommand == ENDGAME){
@@ -533,42 +535,42 @@ void playTurn(struct player ** currPlayer, struct turn ** history,
                     return;
                 }
             }
-            playTurn(currPlayer, history, turns_taken, undoneHistory, board, size, sessionstate, gamestate);
+            play_turn(curr_player, history, turns_taken, undone_history, board, size, sessionstate, gamestate);
             return;
         }
-        rowChar = input[0];
-        row = rowToInt(rowChar)-1;
+        row_char = input[0];
+        row = row_to_int(row_char)-1;
         column = atoi(&input[1])-1;
     }
 
     if(row < 0 || row > size || column < 0 || column > size)
     {
         printf("Not a valid input. Try again.\n");
-        playTurn(currPlayer, history, turns_taken, undoneHistory, board, size, sessionstate, gamestate);
+        play_turn(curr_player, history, turns_taken, undone_history, board, size, sessionstate, gamestate);
         return;
     }
 
     // check if chosen tile is free
     if(board[row][column]  == 0)
     {
-        struct turn * currTurn;
-        currTurn = malloc(sizeof(struct turn));
-        currTurn -> owner = (*currPlayer);
-        currTurn -> row = row;
-        currTurn -> column = column;
-        push_turn(history, currTurn);
+        struct turn * curr_turn;
+        curr_turn = malloc(sizeof(struct turn));
+        curr_turn -> owner = (*curr_player);
+        curr_turn -> row = row;
+        curr_turn -> column = column;
+        push_turn(history, curr_turn);
         (*turns_taken)++;
-        flush_turns(undoneHistory);
-        board[row][column] = (*currPlayer) -> mark;
+        flush_turns(undone_history);
+        board[row][column] = (*curr_player) -> mark;
     }  else {
         printf("This tile is already taken. Make a different move.\n");
-        playTurn(currPlayer, history, turns_taken, undoneHistory, board, size, sessionstate, gamestate);
+        play_turn(curr_player, history, turns_taken, undone_history, board, size, sessionstate, gamestate);
         return;
     }
     return;
 }
 
-int checkGameCommands(char letter)
+int check_game_commands(char letter)
 {
     if(letter == 'r' || letter == 'R'  ){
         return REDO;
@@ -580,8 +582,8 @@ int checkGameCommands(char letter)
     return 0;
 }
 
-int playUndo(struct turn ** history, int *turns_taken,
-        struct turn ** undoneHistory, int ** board)
+int play_undo(struct turn ** history, int *turns_taken,
+        struct turn ** undone_history, int ** board)
 {
     if(*history == NULL){
         printf("No moves to undo\n");
@@ -590,28 +592,28 @@ int playUndo(struct turn ** history, int *turns_taken,
     }
     struct turn * last = pop_turn(history);
     (*turns_taken)--;
-    printf("Popped turn: %c(%d,%d)\n ", getSign((last->owner)->mark), last-> row, last->column);
-    push_turn(undoneHistory, last);
-    printf("Pushed into undone:  %c(%d,%d)\n", getSign(((*undoneHistory)->owner)->mark), (*undoneHistory)->row, (*undoneHistory)->column);
+    printf("Popped turn: %c(%d,%d)\n ", get_sign((last->owner)->mark), last-> row, last->column);
+    push_turn(undone_history, last);
+    printf("Pushed into undone:  %c(%d,%d)\n", get_sign(((*undone_history)->owner)->mark), (*undone_history)->row, (*undone_history)->column);
     board[last->row][last->column] = 0;
 
     return 1;
 }
 
-int playRedo(struct turn ** history, int *turns_taken,
-        struct turn ** undoneHistory, int ** board)
+int play_redo(struct turn ** history, int *turns_taken,
+        struct turn ** undone_history, int ** board)
 {
-    if(*undoneHistory == NULL){
+    if(*undone_history == NULL){
         printf("No moves to redo\n");
         // return 0 if failed to undo
         return 0;
     }
-    struct turn * lastUndone = pop_turn(undoneHistory);
+    struct turn * last_undone = pop_turn(undone_history);
     (*turns_taken)++;
-    printf("Popped turn: %c(%d,%d)\n ", getSign((lastUndone->owner)->mark), lastUndone-> row, lastUndone->column);
-    push_turn(history, lastUndone);
-    printf("Pushed into history:  %c(%d,%d)\n", getSign(((*history)->owner)->mark), (*history)->row, (*history)->column);
-    board[lastUndone->row][lastUndone->column] = (lastUndone->owner)->mark;
+    printf("Popped turn: %c(%d,%d)\n ", get_sign((last_undone->owner)->mark), last_undone-> row, last_undone->column);
+    push_turn(history, last_undone);
+    printf("Pushed into history:  %c(%d,%d)\n", get_sign(((*history)->owner)->mark), (*history)->row, (*history)->column);
+    board[last_undone->row][last_undone->column] = (last_undone->owner)->mark;
 
     return 1;
 }
@@ -645,7 +647,7 @@ void traverse_turns(struct turn * history)
 {
     while(history != NULL)
     {
-        printf("%c: (%d,%d); ", getSign((history-> owner) -> mark),history -> row,  history -> column);
+        printf("%c: (%d,%d); ", get_sign((history-> owner) -> mark),history -> row,  history -> column);
         history = history -> next;
     }
     printf("NULL\n");
@@ -665,7 +667,7 @@ void flush_turns(struct turn ** phistory)
     }
 }
 
-void initBoard(int *** board, int size)
+void init_board(int *** board, int size)
 {
     // *board is a ** int after dereferencing
     *board = malloc(sizeof(int *) * size);;
@@ -697,13 +699,13 @@ void free_board(int *** board, int size)
     free(*board);
 }
 
-char getSign(int mark)
+char get_sign(int mark)
 {
     if(mark == MARK_X) return 'X';
     return 'O';
 }
 
-int rowToInt(char row)
+int row_to_int(char row)
 {
     int numeric = (int)row;
     if(numeric >= 65 && numeric <= 90){
@@ -718,26 +720,26 @@ int rowToInt(char row)
     return numeric;
 }
 
-void checkGameState(int** board, int size, int winscore, int * gamestate,
+void check_game_state(int** board, int size, int winscore, int * gamestate,
                 struct player ** player)
 {
     // move theee in the if above
     int ** weightboard;
-    initBoard(&weightboard, size);
+    init_board(&weightboard, size);
 
-    checkHorizontal(board, weightboard, size, winscore, gamestate, player);
-    checkVertical(board, weightboard, size, winscore, gamestate, player);
-    checkDiagonal(board, weightboard, size, winscore, gamestate, player);
+    check_horizontal(board, weightboard, size, winscore, gamestate, player);
+    check_vertical(board, weightboard, size, winscore, gamestate, player);
+    check_diagonal(board, weightboard, size, winscore, gamestate, player);
     if((*player) -> automated){
         ai_set_best_move(weightboard, size, player);
     }
-    checkTie(board, size, gamestate);
+    check_tie(board, size, gamestate);
     free_board(&weightboard, size);
 
     return;
 }
 
-void checkTie(int ** board, int size, int * gamestate)
+void check_tie(int ** board, int size, int * gamestate)
 {
     if(*gamestate){
         return;
@@ -754,7 +756,7 @@ void checkTie(int ** board, int size, int * gamestate)
 }
 
 
-void checkHorizontal(int** board, int ** weightboard, int size, int winscore,
+void check_horizontal(int** board, int ** weightboard, int size, int winscore,
                     int * gamestate, struct player ** player)
 {
     if(*gamestate){
@@ -811,7 +813,7 @@ void checkHorizontal(int** board, int ** weightboard, int size, int winscore,
     free(ai_scope_column);
 }
 
-void checkVertical(int** board, int ** weightboard, int size, int winscore,
+void check_vertical(int** board, int ** weightboard, int size, int winscore,
                     int * gamestate, struct player ** player)
 {
     if(*gamestate){
@@ -867,7 +869,7 @@ void checkVertical(int** board, int ** weightboard, int size, int winscore,
     free(ai_scope_row);
     free(ai_scope_column);
 }
-void checkDiagonal(int** board, int ** weightboard, int size, int winscore,
+void check_diagonal(int** board, int ** weightboard, int size, int winscore,
                 int * gamestate, struct player ** player)
 {
     if(*gamestate){
@@ -1054,6 +1056,8 @@ int ai_check_patterns(int * ai_scope, int scopesize, int player_mark)
         return (player_count*2)+1;
     else if(player_count == 0 && opponent_count > 0)
         return (opponent_count*2);
+    else if(player_count == 0 && opponent_count == 0)
+        return 1;
 
     return 0;
 }
@@ -1065,21 +1069,21 @@ int opposite_mark(int mark){
         return MARK_X;
 }
 
-void displayBoard(int ** board, int size)
+void display_board(int ** board, int size)
 {
     printf("\n");
 
     char letter = 'A';
-    printTop(size);
+    print_top(size);
 
     for(int i = 0; i< size; i++){
-        printRow(letter+i, size, board[i]);
+        print_row(letter+i, size, board[i]);
     }
-    printDivider(size);
+    print_divider(size);
     printf("\n");
 }
 
-void printTop(int size)
+void print_top(int size)
 {
     printf("\t\t");
     printf("    ");
@@ -1090,12 +1094,12 @@ void printTop(int size)
     printf("\n");
 }
 
-void printRow(char letter, int size, int* values)
+void print_row(char letter, int size, int* values)
 {
-    printDivider(size);
+    print_divider(size);
 
     printf("\t\t");
-    printLine(size, values, 1);
+    print_line(size, values, 1);
 
     printf("\t");
     for(int i=0; i<8; i++){
@@ -1105,13 +1109,13 @@ void printRow(char letter, int size, int* values)
             printf(" ");
         }
     }
-    printLine(size, values, 2);
+    print_line(size, values, 2);
 
     printf("\t\t");
-    printLine(size, values, 3);
+    print_line(size, values, 3);
 }
 
-void printLine(int size, int* values, int vertical)
+void print_line(int size, int* values, int vertical)
 {
     for(int i=0; i<(size); i++){
         printf("|");
@@ -1153,7 +1157,7 @@ void printLine(int size, int* values, int vertical)
     printf("|\n");
 }
 
-void printDivider(int size)
+void print_divider(int size)
 {
     printf("\t\t");
     for(int i=0; i<((size*7)+(size+1)); i++){
