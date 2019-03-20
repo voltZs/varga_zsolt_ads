@@ -57,7 +57,7 @@ void push_turn(struct turn **, struct turn *);
 void traverse_turns(struct turn *);
 void flush_turns(struct turn **);
 struct turn * pop_turn(struct turn **);
-void play_turn(struct player**, struct turn**, int*, struct turn**, int**, int, int*, int*);
+void play_turn(struct player***,struct player**,struct player**, struct turn**, int*, struct turn**, int**, int, int*, int*);
 int check_game_commands(char);
 void prompt_next_round(int*);
 int play_undo(struct turn **, int*, struct turn **, int **);
@@ -149,7 +149,7 @@ int main(){
                     switch_player(&curr_player, &player_one, &player_two);
                     break;
                 }
-                play_turn(curr_player, &history, &turns_taken, &undone_history, board, gb_size, &sessionstate, &gamestate);
+                play_turn(&curr_player, &player_one, &player_two, &history, &turns_taken, &undone_history, board, gb_size, &sessionstate, &gamestate);
             }
             if(gamestate == GAME_WON){
                 printf("%s (%c) won!\n", (*curr_player) -> name, get_sign((*curr_player) -> mark));
@@ -497,12 +497,15 @@ void switch_player(struct player *** curr_player ,
     }else{
         *curr_player = player_one;
     }
+    printf("Current player set to: %c\n", get_sign((**curr_player)->mark));
 }
 
-void play_turn(struct player ** curr_player, struct turn ** history,
+void play_turn(struct player *** current_player, struct player ** player_one,
+                    struct player ** player_two, struct turn ** history,
                     int* turns_taken, struct turn ** undone_history,
                     int** board, int size, int * sessionstate, int * gamestate)
 {
+    struct player ** curr_player = *current_player;
     int column = 0;
     int row = 0;
     bool automated = (*curr_player) -> automated;
@@ -523,6 +526,12 @@ void play_turn(struct player ** curr_player, struct turn ** history,
             if(gamecommand){
                 if(gamecommand == UNDO){
                     if(play_undo(history, turns_taken, undone_history, board)){
+                        // if undoing a computer's move and there are more moves in the history,
+                        // undo one more so the computer doesn't go again
+                        if(((*undone_history)->owner)->automated && history){
+                                play_undo(history, turns_taken, undone_history, board);
+                                switch_player(current_player, player_one, player_two);
+                        }
                         return;
                     }
                 } else if(gamecommand == REDO){
@@ -535,7 +544,7 @@ void play_turn(struct player ** curr_player, struct turn ** history,
                     return;
                 }
             }
-            play_turn(curr_player, history, turns_taken, undone_history, board, size, sessionstate, gamestate);
+            play_turn(current_player, player_one, player_two, history, turns_taken, undone_history, board, size, sessionstate, gamestate);
             return;
         }
         row_char = input[0];
@@ -546,7 +555,7 @@ void play_turn(struct player ** curr_player, struct turn ** history,
     if(row < 0 || row > size || column < 0 || column > size)
     {
         printf("Not a valid input. Try again.\n");
-        play_turn(curr_player, history, turns_taken, undone_history, board, size, sessionstate, gamestate);
+        play_turn(current_player, player_one, player_two, history, turns_taken, undone_history, board, size, sessionstate, gamestate);
         return;
     }
 
@@ -564,7 +573,7 @@ void play_turn(struct player ** curr_player, struct turn ** history,
         board[row][column] = (*curr_player) -> mark;
     }  else {
         printf("This tile is already taken. Make a different move.\n");
-        play_turn(curr_player, history, turns_taken, undone_history, board, size, sessionstate, gamestate);
+        play_turn(current_player, player_one, player_two, history, turns_taken, undone_history, board, size, sessionstate, gamestate);
         return;
     }
     return;
