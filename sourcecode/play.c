@@ -199,16 +199,21 @@ void browse_old_games(int * sessionstate, int start)
     printf("\n-PREVIOUS GAMES-\n\n");
     printf("\tID\tPlayer 1\tPlayer 2\tWinner\tBoard\tRow\tDate\n");
     printf("\t----------------------------------------------------------------------------------------\n");
-
     int start_id;
-    if(start == -1)
-        start_id = csv_size-1;
-    else
+
+    if(csv_size > MAX_GAMES_LISTED && start != -1){
         if(start > MAX_GAMES_LISTED)
             start_id = start;
         else
-            start_id = MAX_GAMES_LISTED-1;
+          start_id = MAX_GAMES_LISTED-1;
+    } else {
+      start_id = csv_size-1;
+    }
+
+
+
     int final_id = start_id - MAX_GAMES_LISTED;
+    int prev_id = start_id + MAX_GAMES_LISTED;
     list_old_games(start_id, final_id, csv_size, linesizes, csv_array);
     printf("\nEnter game ID to replay game. Move up and down the list by entering W/S.\nEnter Q to exit.\n\n");
 
