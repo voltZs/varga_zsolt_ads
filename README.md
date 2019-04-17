@@ -5,5 +5,5 @@ To play, navigate into the executable folder and run play from the terminal/comm
 
 The compilable sourcebcode can be found in the sourcecode folder.
 
-![Alt text](game_welcome.png?raw=true "Welcome page")
-![Alt text](games_replay.png?raw=true "View of board")
+![Alt text](game_welcome.png "Welcome page")
+![Alt text](games_replay.png "View of board")
